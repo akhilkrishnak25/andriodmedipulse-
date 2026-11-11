@@ -27,11 +27,13 @@ import {
 } from 'lucide-react';
 import { hospitalsApi } from '../api/hospitals.api';
 import { labApi } from '../api/lab.api';
+import { advertisementApi } from '../api/advertisement.api';
 import { getMediaUrl } from '../api/client';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
 import { RocketWheelLogo } from '../components/common/RocketWheelLogo';
+import { AdvertisementCarousel } from '../components/common/AdvertisementCarousel';
 
 const deptIcons: Record<string, React.ReactNode> = {
   cardiology: <HeartPulse className="w-6 h-6 text-[#FF1D6B]" />,
@@ -61,6 +63,11 @@ export const HomePage: React.FC = () => {
   const { data: departments } = useQuery({
     queryKey: ['departments', 'popular'],
     queryFn: () => hospitalsApi.getDepartments(),
+  });
+
+  const { data: platformAds } = useQuery({
+    queryKey: ['advertisements', 'platform'],
+    queryFn: () => advertisementApi.getPublicPlatformAds(),
   });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -141,6 +148,13 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* PLATFORM ADVERTISEMENTS CAROUSEL */}
+      {platformAds && platformAds.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-12 relative z-20">
+          <AdvertisementCarousel advertisements={platformAds} autoSlideInterval={5000} />
+        </section>
+      )}
 
       {/* POPULAR CLINICAL DEPARTMENTS */}
       <section id="departments" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

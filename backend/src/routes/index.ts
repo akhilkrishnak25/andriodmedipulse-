@@ -14,6 +14,7 @@ import labRoutes from './lab.routes';
 import publicLabRoutes from './publicLab.routes';
 import pharmacyRoutes from './pharmacy.routes';
 import uploadRoutes from './upload.routes';
+import advertisementRoutes from './advertisement.routes';
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.use('/lab', labRoutes);
 router.use('/labs', publicLabRoutes);
 router.use('/pharmacy', pharmacyRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/advertisements', advertisementRoutes);
 
 // Health check endpoint with database ping
 router.get('/health', async (req, res) => {

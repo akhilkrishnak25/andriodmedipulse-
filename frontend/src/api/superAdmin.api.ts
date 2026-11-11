@@ -1,4 +1,9 @@
 import { api, API_BASE_URL } from './client';
+import {
+  HospitalPlatformFee,
+  HospitalPlatformFeeConfigItem,
+  PlatformFeeRevenueReport,
+} from '../types';
 
 export const superAdminApi = {
   getMetrics: () => api.get<any>('/super-admin/metrics'),
@@ -117,5 +122,49 @@ export const superAdminApi = {
     if (filters.bookingType) query.append('bookingType', filters.bookingType);
     const qs = query.toString();
     return `${API_BASE_URL}/super-admin/export/excel${qs ? `?${qs}` : ''}`;
+  },
+
+  // Platform Fee Management & Revenue
+  getPlatformFeeConfigs: (search?: string) => {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return api.get<HospitalPlatformFeeConfigItem[]>(`/super-admin/platform-fees/hospitals${qs}`);
+  },
+  getHospitalPlatformFee: (hospitalId: string) =>
+    api.get<HospitalPlatformFee>(`/super-admin/platform-fees/hospitals/${hospitalId}`),
+  updateHospitalPlatformFee: (
+    hospitalId: string,
+    data: { feeType: 'FIXED' | 'PERCENTAGE'; feeValue: number; isEnabled: boolean }
+  ) => api.patch<HospitalPlatformFee>(`/super-admin/platform-fees/hospitals/${hospitalId}`, data),
+  getPlatformFeeReports: (filters: { startDate?: string; endDate?: string; hospitalId?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (filters.startDate) query.append('startDate', filters.startDate);
+    if (filters.endDate) query.append('endDate', filters.endDate);
+    if (filters.hospitalId) query.append('hospitalId', filters.hospitalId);
+    const qs = query.toString();
+    return api.get<PlatformFeeRevenueReport>(`/super-admin/platform-fees/reports${qs ? `?${qs}` : ''}`);
+  },
+  exportPlatformFeeExcel: async (filters: { startDate?: string; endDate?: string; hospitalId?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (filters.startDate) query.append('startDate', filters.startDate);
+    if (filters.endDate) query.append('endDate', filters.endDate);
+    if (filters.hospitalId) query.append('hospitalId', filters.hospitalId);
+    const qs = query.toString();
+    const token =
+      localStorage.getItem('rocketwheel_access_token') ||
+      localStorage.getItem('medipulse_access_token') ||
+      localStorage.getItem('token');
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/super-admin/platform-fees/export/excel${qs ? `?${qs}` : ''}`, {
+      headers,
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to export Platform Fee Excel report (${res.status})`);
+    }
+    return res.blob();
   },
 };

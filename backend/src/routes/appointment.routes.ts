@@ -4,6 +4,7 @@ import { AppointmentController } from '../controllers/appointment.controller';
 const router = Router();
 
 // Guest Patient Booking Flow (No Login Required)
+router.get('/fee-breakdown', AppointmentController.getFeeBreakdown);
 router.post('/', AppointmentController.createAppointment);
 router.post('/confirm-payment', AppointmentController.confirmPayment);
 router.get('/:id', AppointmentController.getAppointment);

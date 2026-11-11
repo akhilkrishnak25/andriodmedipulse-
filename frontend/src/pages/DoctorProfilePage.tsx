@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { doctorsApi } from '../api/doctors.api';
 import { getMediaUrl } from '../api/client';
+import { DoctorProfileImage } from '../components/common/DoctorProfileImage';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -61,13 +62,10 @@ export const DoctorProfilePage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
       {/* DOCTOR HERO CARD */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col md:flex-row gap-8 items-start">
-        <img
-          src={getMediaUrl(doctor.photoUrl) || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80'}
-          alt={doctor.name}
-          className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl object-cover border-2 border-slate-100 shadow-md shrink-0"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&auto=format&fit=crop&q=80';
-          }}
+        <DoctorProfileImage
+          photoUrl={doctor.photoUrl}
+          name={doctor.name}
+          className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl border-2 border-slate-100 shadow-md shrink-0"
         />
 
         <div className="flex-1 space-y-4">

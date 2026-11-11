@@ -608,3 +608,50 @@ export const updateSubAdminPermissionsSchema = z.object({
   roleTitle: z.string().optional(),
 });
 
+// ==========================================
+// Hospital Admin - Edit Profile Schemas
+// ==========================================
+export const updateAdminProfileSchema = z.object({
+  adminName: z.string().min(2, 'Administrator name must be at least 2 characters').optional(),
+  phone: z.string().min(7, 'Valid contact phone number is required').optional().nullable(),
+  hospitalName: z.string().min(2, 'Hospital name must be at least 2 characters').optional(),
+  hospitalAddress: z.string().min(3, 'Hospital address is required').optional(),
+  city: z.string().min(2, 'City is required').optional(),
+  state: z.string().min(2, 'State is required').optional(),
+  pincode: z
+    .string()
+    .optional()
+    .nullable()
+    .refine((val) => !val || /^\d{6}$/.test(val.trim()), {
+      message: 'Please enter a valid 6-digit Indian PIN code',
+    }),
+  designation: z.string().min(2, 'Designation must be at least 2 characters').optional().nullable(),
+});
+
+export const requestEmailChangeOtpSchema = z.object({
+  newEmail: z.string().email('Please enter a valid new email address').transform((v) => v.toLowerCase().trim()),
+});
+
+export const verifyEmailChangeOtpSchema = z.object({
+  newEmail: z.string().email('Please enter a valid new email address').transform((v) => v.toLowerCase().trim()),
+  otpCode: z.string().min(4, 'Verification OTP code is required').max(10, 'Invalid OTP length').transform((v) => v.trim()),
+});
+
+export const changeAdminPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z
+      .string()
+      .min(8, 'Password must be at least 8 characters long')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter (A-Z)')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter (a-z)')
+      .regex(/[0-9]/, 'Password must contain at least one number (0-9)')
+      .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character (!@#$%^&*...)'),
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'New password and Confirm new password do not match',
+    path: ['confirmPassword'],
+  });
+
+

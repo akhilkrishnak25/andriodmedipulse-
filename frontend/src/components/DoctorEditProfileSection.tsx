@@ -25,6 +25,7 @@ import {
 import { useToast } from './ui/Toast';
 import { doctorDashboardApi } from '../api/doctor.api';
 import { uploadApi, getMediaUrl } from '../api/client';
+import { DoctorProfileImage, isUploadedDoctorImage } from './common/DoctorProfileImage';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -69,6 +70,7 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
 
   // Photo State
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoRemovedLocally, setPhotoRemovedLocally] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Prepopulate form fields whenever profile or user loads/changes
@@ -109,6 +111,7 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
         try {
           const base64Data = reader.result as string;
           const result = await uploadApi.uploadProfilePhoto(base64Data);
+          setPhotoRemovedLocally(false);
           refetchProfile();
           updateUser({ avatarUrl: (result as any).url || (result as any).avatarUrl });
           toast.success('Photo Updated', 'Doctor profile photo has been updated.');
@@ -128,11 +131,13 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
   const handlePhotoRemove = async () => {
     if (!window.confirm('Remove doctor profile photo?')) return;
     try {
+      setPhotoRemovedLocally(true);
       await uploadApi.removeProfilePhoto();
-      refetchProfile();
       updateUser({ avatarUrl: null });
+      await refetchProfile();
       toast.success('Photo Removed', 'Profile photo removed successfully.');
     } catch (err: any) {
+      setPhotoRemovedLocally(false);
       toast.error('Removal Failed', err.message);
     }
   };
@@ -220,7 +225,7 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
     }
   };
 
-  const activePhoto = user?.avatarUrl || profile?.user?.avatarUrl || profile?.photoUrl;
+  const activePhoto = photoRemovedLocally ? null : (user?.avatarUrl || profile?.user?.avatarUrl || profile?.photoUrl);
 
   return (
     <div className="space-y-6">
@@ -258,20 +263,13 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 border-b border-slate-100 pb-6">
             {/* Avatar with Upload & Remove */}
             <div className="relative group shrink-0">
-              <div className="w-28 h-28 rounded-2xl overflow-hidden bg-royal-50 border-2 border-royal-200 flex items-center justify-center text-royal-700 shadow-inner">
-                {activePhoto ? (
-                  <img
-                    src={getMediaUrl(activePhoto)}
-                    alt="Doctor Profile"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80';
-                    }}
-                  />
-                ) : (
-                  <User className="w-14 h-14 text-royal-400" />
-                )}
+              <div className="w-28 h-28 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center shadow-inner">
+                <DoctorProfileImage
+                  photoUrl={activePhoto}
+                  name="Doctor Profile"
+                  className="w-full h-full"
+                  blankClassName="bg-slate-100"
+                />
                 {isUploadingPhoto && (
                   <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
                     <RefreshCw className="w-6 h-6 text-royal-600 animate-spin" />
@@ -318,7 +316,7 @@ export const DoctorEditProfileSection: React.FC<DoctorEditProfileSectionProps> =
                 Manage your credentials, consulting hours, and contact information. Changes are reflected across appointments and patient prescription headers immediately.
               </p>
 
-              {activePhoto && (
+              {isUploadedDoctorImage(activePhoto) && (
                 <div className="pt-1">
                   <Button
                     type="button"

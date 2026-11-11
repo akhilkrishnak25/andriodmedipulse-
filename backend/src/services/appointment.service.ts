@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { ENV } from '../config/env';
 import { PaymentService } from './payment.service';
 import { NotificationService } from './notification.service';
+import { PlatformFeeService } from './platformFee.service';
 import { generateDigitalOpPdf } from '../utils/pdf';
 import { AuditService } from '../utils/audit';
 
@@ -152,9 +153,12 @@ export class AppointmentService {
     const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
     const appointmentNumber = `APT-${dateFormatted}-${randomHex}`;
 
-    const consultationFee = doctor.consultationFee;
-    const platformFee = ENV.PLATFORM_FEE;
-    const totalAmount = consultationFee + platformFee;
+    // Calculate platform fee authoritatively based on hospital configuration
+    const feeBreakdown = await PlatformFeeService.calculateFee(hospitalId, doctor.consultationFee);
+    const consultationFee = feeBreakdown.serviceAmount;
+    const platformFee = feeBreakdown.platformFee;
+    const platformFeeType = feeBreakdown.platformFeeType;
+    const totalAmount = feeBreakdown.totalAmount;
 
     // Create appointment in PENDING_PAYMENT status
     const appointment = await prisma.appointment.create({
@@ -171,6 +175,7 @@ export class AppointmentService {
         bookingType: 'ONLINE',
         consultationFee,
         platformFee,
+        platformFeeType,
         totalAmount,
         notes,
         assignedStaffId: doctor.assignedStaffId || null,
@@ -255,6 +260,9 @@ export class AppointmentService {
           razorpayPaymentId,
           razorpaySignature,
           amount: appointment.totalAmount,
+          serviceAmount: appointment.consultationFee,
+          platformFee: appointment.platformFee,
+          platformFeeType: appointment.platformFeeType || 'FIXED',
           currency: 'INR',
           status: 'FAILED',
           failureReason: 'Invalid Razorpay payment signature',
@@ -286,6 +294,9 @@ export class AppointmentService {
           razorpayPaymentId,
           razorpaySignature,
           amount: appointment.totalAmount,
+          serviceAmount: appointment.consultationFee,
+          platformFee: appointment.platformFee,
+          platformFeeType: appointment.platformFeeType || 'FIXED',
           currency: 'INR',
           status: 'SUCCESS',
           paymentMethod: 'Razorpay Online Gateway',
@@ -296,6 +307,9 @@ export class AppointmentService {
           razorpayPaymentId,
           razorpaySignature,
           amount: appointment.totalAmount,
+          serviceAmount: appointment.consultationFee,
+          platformFee: appointment.platformFee,
+          platformFeeType: appointment.platformFeeType || 'FIXED',
           currency: 'INR',
           status: 'SUCCESS',
           paymentMethod: 'Razorpay Online Gateway',
@@ -827,6 +841,7 @@ export class AppointmentService {
         bookingType: 'OFFLINE',
         consultationFee: fee,
         platformFee: 0,
+        platformFeeType: 'NONE',
         totalAmount: fee,
         notes,
         assignedStaffId: doctor.assignedStaffId || null,

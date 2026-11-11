@@ -55,10 +55,13 @@ import {
   Sliders,
   RotateCw,
   Type,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { adminApi } from '../api/admin.api';
 import { uploadApi, getMediaUrl } from '../api/client';
+import { DoctorProfileImage } from '../components/common/DoctorProfileImage';
+import { AdminEditProfileSection } from '../components/admin/AdminEditProfileSection';
 import { appointmentsApi } from '../api/appointments.api';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -68,6 +71,7 @@ import { useToast } from '../components/ui/Toast';
 import { InlineSpinner } from '../components/ui/Loading';
 import { Appointment, Doctor } from '../types';
 import { formatBP, formatSystolicDiastolicBP } from '../utils/vitals';
+import { HospitalAdvertisementManagement } from '../components/admin/HospitalAdvertisementManagement';
 
 export const HospitalAdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -86,7 +90,7 @@ export const HospitalAdminDashboardPage: React.FC = () => {
   const canManageLabs = !isSubAdmin || subPermissions.includes('LAB_MANAGEMENT');
   const canManagePharmacies = !isSubAdmin || subPermissions.includes('PHARMACY_MANAGEMENT') || subPermissions.includes('OP_MANAGEMENT');
 
-  const [activeTab, setActiveTab] = useState<'appointments' | 'doctors' | 'patients' | 'staff' | 'subadmins' | 'notifications' | 'labs' | 'pharmacies' | 'branding'>('appointments');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'doctors' | 'patients' | 'staff' | 'subadmins' | 'notifications' | 'labs' | 'pharmacies' | 'branding' | 'advertisements' | 'profile'>('appointments');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -177,7 +181,7 @@ export const HospitalAdminDashboardPage: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['appointments', 'doctors', 'patients', 'staff', 'subadmins', 'notifications', 'labs', 'pharmacies', 'branding'].includes(hash)) {
+      if (['appointments', 'doctors', 'patients', 'staff', 'subadmins', 'notifications', 'labs', 'pharmacies', 'branding', 'advertisements', 'profile'].includes(hash)) {
         setActiveTab(hash as any);
       }
     };
@@ -187,7 +191,7 @@ export const HospitalAdminDashboardPage: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleTabChange = (tab: 'appointments' | 'doctors' | 'patients' | 'staff' | 'subadmins' | 'notifications' | 'labs' | 'pharmacies' | 'branding') => {
+  const handleTabChange = (tab: 'appointments' | 'doctors' | 'patients' | 'staff' | 'subadmins' | 'notifications' | 'labs' | 'pharmacies' | 'branding' | 'advertisements' | 'profile') => {
     setActiveTab(tab);
     window.location.hash = `#${tab}`;
   };
@@ -1289,29 +1293,55 @@ export const HospitalAdminDashboardPage: React.FC = () => {
                 </span>
               )}
             </p>
-            {(user?.avatarUrl || hospitalProfile?.logoUrl || hospitalProfile?.imageUrl) && (
-              <div className="flex items-center gap-3 mt-0.5">
-                <button
-                  type="button"
-                  onClick={handleProfilePhotoRemove}
-                  disabled={isUploadingPhoto}
-                  className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline inline-block"
-                >
-                  Reset image
-                </button>
-                <button
-                  type="button"
-                  onClick={openBrandingModal}
-                  className="text-[11px] text-royal-600 hover:text-royal-800 font-semibold underline inline-block"
-                >
-                  Manage Branding & Cover
-                </button>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => handleTabChange('profile')}
+                className="text-[11px] text-royal-700 hover:text-royal-900 font-bold underline inline-flex items-center gap-1"
+              >
+                <UserCog className="w-3 h-3" /> Edit Profile
+              </button>
+              {(user?.avatarUrl || hospitalProfile?.logoUrl || hospitalProfile?.imageUrl) && (
+                <>
+                  <span className="text-slate-300">•</span>
+                  <button
+                    type="button"
+                    onClick={handleProfilePhotoRemove}
+                    disabled={isUploadingPhoto}
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold underline inline-block"
+                  >
+                    Reset image
+                  </button>
+                  <span className="text-slate-300">•</span>
+                  <button
+                    type="button"
+                    onClick={openBrandingModal}
+                    className="text-[11px] text-royal-600 hover:text-royal-800 font-semibold underline inline-block"
+                  >
+                    Manage Branding & Cover
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* ADMIN EDIT PROFILE BUTTON */}
+          <Button
+            variant="outline"
+            onClick={() => handleTabChange('profile')}
+            className={`font-bold text-xs flex items-center gap-1.5 shadow-sm ${
+              activeTab === 'profile'
+                ? 'bg-royal-600 text-white border-royal-600 hover:bg-royal-700'
+                : 'border-royal-200 text-royal-700 hover:bg-royal-50'
+            }`}
+            size="sm"
+          >
+            <UserCog className="w-4 h-4" />
+            Edit Profile
+          </Button>
+
           {/* HOSPITAL BRANDING & SETTINGS BUTTON */}
           <Button
             variant="outline"
@@ -1471,6 +1501,16 @@ export const HospitalAdminDashboardPage: React.FC = () => {
             >
               <FileHeart className="w-3.5 h-3.5 text-rose-500" />
               PDF Branding
+            </button>
+
+            <button
+              onClick={() => handleTabChange('profile')}
+              className={`px-3.5 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 ${
+                activeTab === 'profile' ? 'bg-white text-royal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <UserCog className="w-3.5 h-3.5 text-royal-600" />
+              Admin Profile
             </button>
           </div>
         </div>
@@ -1980,13 +2020,20 @@ export const HospitalAdminDashboardPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {pendingDoctors.map((pDoc) => (
                     <div key={pDoc.id} className="bg-white border border-amber-200/90 rounded-xl p-4 space-y-3 shadow-xs">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-sm">{pDoc.name}</h4>
-                          <p className="text-xs font-semibold text-royal-600">{pDoc.specialization}</p>
-                          <p className="text-[11px] text-slate-500">
-                            {pDoc.department?.name || 'Department'} • {pDoc.qualification}
-                          </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <DoctorProfileImage
+                            photoUrl={pDoc.photoUrl}
+                            name={pDoc.name}
+                            className="w-10 h-10 rounded-xl border border-slate-200 shrink-0"
+                          />
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm">{pDoc.name}</h4>
+                            <p className="text-xs font-semibold text-royal-600">{pDoc.specialization}</p>
+                            <p className="text-[11px] text-slate-500">
+                              {pDoc.department?.name || 'Department'} • {pDoc.qualification}
+                            </p>
+                          </div>
                         </div>
                         <Badge variant="warning" className="text-[10px]">PENDING</Badge>
                       </div>
@@ -2093,11 +2140,18 @@ export const HospitalAdminDashboardPage: React.FC = () => {
                       className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-bold text-slate-900 text-sm">{doc.name}</h3>
-                            <div className="text-xs text-royal-600 font-semibold">{doc.specialization}</div>
-                            <div className="text-[11px] text-slate-500">{doc.department?.name || 'General Department'}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <DoctorProfileImage
+                              photoUrl={doc.photoUrl}
+                              name={doc.name}
+                              className="w-11 h-11 rounded-xl border border-slate-200 shrink-0"
+                            />
+                            <div>
+                              <h3 className="font-bold text-slate-900 text-sm">{doc.name}</h3>
+                              <div className="text-xs text-royal-600 font-semibold">{doc.specialization}</div>
+                              <div className="text-[11px] text-slate-500">{doc.department?.name || 'General Department'}</div>
+                            </div>
                           </div>
                           {getDoctorStatusBadge(doc)}
                         </div>
@@ -4023,6 +4077,21 @@ export const HospitalAdminDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB: HOSPITAL ADVERTISEMENT MANAGEMENT */}
+      {activeTab === 'advertisements' && (
+        <HospitalAdvertisementManagement />
+      )}
+
+      {/* TAB: HOSPITAL ADMIN PROFILE & SECURITY */}
+      {activeTab === 'profile' && (
+        <AdminEditProfileSection
+          hospitalProfile={hospitalProfile}
+          onProfileUpdated={() => {
+            refetchHospitalProfile();
+          }}
+        />
       )}
 
       {/* EDIT HOSPITAL LAB MODAL */}

@@ -16,6 +16,10 @@ import {
   updateSubAdminPermissionsSchema,
   updateLabVisibilitySchema,
   updateLabSchema,
+  updateAdminProfileSchema,
+  requestEmailChangeOtpSchema,
+  verifyEmailChangeOtpSchema,
+  changeAdminPasswordSchema,
 } from '../validators/schemas';
 
 export class AdminController {
@@ -732,6 +736,102 @@ export class AdminController {
       await AdminService.exportPatientsToExcel(hospitalId, req.query as any, res);
     } catch (error: any) {
       return errorResponse(res, error.message || 'Failed to export patient records to Excel', 500);
+    }
+  }
+
+  // ==========================================
+  // Hospital Admin - Edit Profile Endpoints
+  // ==========================================
+
+  static async getAdminProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id || req.user?.userId;
+      const hospitalId = req.user?.hospitalId;
+      if (!userId || !hospitalId) {
+        return errorResponse(res, 'Hospital Administrator authentication required', 401);
+      }
+
+      const profile = await AdminService.getAdminProfile(userId, hospitalId);
+      return successResponse(res, profile, 'Admin profile retrieved successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to fetch admin profile', 500);
+    }
+  }
+
+  static async updateAdminProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id || req.user?.userId;
+      const hospitalId = req.user?.hospitalId;
+      if (!userId || !hospitalId) {
+        return errorResponse(res, 'Hospital Administrator authentication required', 401);
+      }
+
+      const validated = updateAdminProfileSchema.parse(req.body);
+      const updated = await AdminService.updateAdminProfile(userId, hospitalId, validated, req.user?.role);
+      return successResponse(res, updated, 'Admin profile updated successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to update admin profile', 400, error.errors);
+    }
+  }
+
+  static async requestEmailChangeOtp(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id || req.user?.userId;
+      const hospitalId = req.user?.hospitalId;
+      if (!userId || !hospitalId) {
+        return errorResponse(res, 'Hospital Administrator authentication required', 401);
+      }
+
+      const validated = requestEmailChangeOtpSchema.parse(req.body);
+      const result = await AdminService.requestEmailChangeOtp(userId, hospitalId, validated.newEmail, req.ip);
+      return successResponse(res, result, result.message);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to request email verification OTP', 400);
+    }
+  }
+
+  static async verifyEmailChangeOtp(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id || req.user?.userId;
+      const hospitalId = req.user?.hospitalId;
+      if (!userId || !hospitalId) {
+        return errorResponse(res, 'Hospital Administrator authentication required', 401);
+      }
+
+      const validated = verifyEmailChangeOtpSchema.parse(req.body);
+      const result = await AdminService.verifyEmailChangeOtp(
+        userId,
+        hospitalId,
+        validated.newEmail,
+        validated.otpCode,
+        req.ip
+      );
+      return successResponse(res, result, result.message);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to verify email change OTP', 400);
+    }
+  }
+
+  static async changeAdminPassword(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id || req.user?.userId;
+      const hospitalId = req.user?.hospitalId;
+      if (!userId || !hospitalId) {
+        return errorResponse(res, 'Hospital Administrator authentication required', 401);
+      }
+
+      const validated = changeAdminPasswordSchema.parse(req.body);
+      const result = await AdminService.changeAdminPassword(
+        userId,
+        hospitalId,
+        validated.currentPassword,
+        validated.newPassword,
+        validated.confirmPassword,
+        req.ip
+      );
+      return successResponse(res, result, result.message);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to update password', 400, error.errors);
     }
   }
 }

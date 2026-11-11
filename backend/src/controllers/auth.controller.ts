@@ -5,6 +5,7 @@ import prisma from '../config/prisma';
 import { generateTokens, verifyRefreshToken } from '../utils/jwt';
 import { successResponse, errorResponse } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
+import { sanitizeDoctorPhotoUrl } from '../services/doctor.service';
 import {
   loginSchema,
   refreshTokenSchema,
@@ -195,12 +196,14 @@ export class AuthController {
             id: user.id,
             name: user.name,
             email: user.email,
-            avatarUrl: user.avatarUrl,
+            phone: user.phone,
+            avatarUrl: user.role === 'DOCTOR' ? sanitizeDoctorPhotoUrl(user.avatarUrl) : user.avatarUrl,
             role: user.role,
             status: user.status,
             lastLoginAt: user.lastLoginAt,
             hospital,
-            doctor: user.doctor,
+            hospitalAdmin: user.hospitalAdmin,
+            doctor: user.doctor ? { ...user.doctor, photoUrl: sanitizeDoctorPhotoUrl(user.doctor.photoUrl) } : null,
             hospitalSubAdmin: user.hospitalSubAdmin,
             supportStaff: user.supportStaff,
             labTechnician: user.labTechnician,
@@ -723,12 +726,14 @@ export class AuthController {
         id: user.id,
         name: user.name,
         email: user.email,
-        avatarUrl: user.avatarUrl,
+        phone: user.phone,
+        avatarUrl: user.role === 'DOCTOR' ? sanitizeDoctorPhotoUrl(user.avatarUrl) : user.avatarUrl,
         role: user.role,
         status: user.status,
         lastLoginAt: user.lastLoginAt,
         hospital,
-        doctor: user.doctor,
+        hospitalAdmin: user.hospitalAdmin,
+        doctor: user.doctor ? { ...user.doctor, photoUrl: sanitizeDoctorPhotoUrl(user.doctor.photoUrl) } : null,
         hospitalSubAdmin: user.hospitalSubAdmin,
         supportStaff: user.supportStaff,
         labTechnician: user.labTechnician,

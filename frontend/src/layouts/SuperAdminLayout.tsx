@@ -12,6 +12,8 @@ import {
   ExternalLink,
   Menu,
   ShieldCheck,
+  BadgePercent,
+  Megaphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
@@ -26,7 +28,7 @@ export const SuperAdminLayout: React.FC = () => {
   useEffect(() => {
     const syncTab = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs'].includes(hash)) {
+      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs', 'platform-fee', 'advertisements'].includes(hash)) {
         setCurrentTab(hash);
       } else {
         setCurrentTab('hospitals');
@@ -101,6 +103,18 @@ export const SuperAdminLayout: React.FC = () => {
       label: 'Diagnostic Laboratories',
       icon: FlaskConical,
       color: 'text-purple-400',
+    },
+    {
+      id: 'platform-fee',
+      label: 'Platform Fee Config',
+      icon: BadgePercent,
+      color: 'text-indigo-400',
+    },
+    {
+      id: 'advertisements',
+      label: 'Advertisements (Max 8)',
+      icon: Megaphone,
+      color: 'text-amber-400',
     },
     {
       id: 'analytics',

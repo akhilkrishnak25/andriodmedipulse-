@@ -17,10 +17,13 @@ import {
   Calendar,
 } from 'lucide-react';
 import { hospitalsApi } from '../api/hospitals.api';
+import { advertisementApi } from '../api/advertisement.api';
 import { getMediaUrl } from '../api/client';
+import { DoctorProfileImage } from '../components/common/DoctorProfileImage';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
+import { AdvertisementCarousel } from '../components/common/AdvertisementCarousel';
 
 export const HospitalDetailPage: React.FC = () => {
   const { hospitalId } = useParams<{ hospitalId: string }>();
@@ -49,6 +52,12 @@ export const HospitalDetailPage: React.FC = () => {
         specialization: specializationSearch || undefined,
         maxFee: maxFee ? Number(maxFee) : undefined,
       }),
+    enabled: !!hospital?.id,
+  });
+
+  const { data: hospitalAds } = useQuery({
+    queryKey: ['advertisements', 'hospital', hospital?.id],
+    queryFn: () => advertisementApi.getPublicHospitalAds(hospital!.id),
     enabled: !!hospital?.id,
   });
 
@@ -161,6 +170,13 @@ export const HospitalDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* HOSPITAL SPECIFIC ADVERTISEMENT BANNER CAROUSEL */}
+      {hospitalAds && hospitalAds.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-10">
+          <AdvertisementCarousel advertisements={hospitalAds} autoSlideInterval={5000} />
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* FACILITIES SECTION */}
@@ -305,13 +321,10 @@ export const HospitalDetailPage: React.FC = () => {
               {doctors.map((doctor) => (
                 <Card key={doctor.id} hover className="flex flex-col justify-between rounded-2xl p-6 border-slate-200">
                   <div className="flex items-start gap-4">
-                    <img
-                      src={getMediaUrl(doctor.photoUrl) || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80'}
-                      alt={doctor.name}
-                      className="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80';
-                      }}
+                    <DoctorProfileImage
+                      photoUrl={doctor.photoUrl}
+                      name={doctor.name}
+                      className="w-20 h-20 rounded-2xl border border-slate-200 shadow-sm shrink-0"
                     />
 
                     <div className="flex-1 space-y-1">

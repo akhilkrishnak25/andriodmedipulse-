@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AppointmentService } from '../services/appointment.service';
+import { PlatformFeeService } from '../services/platformFee.service';
 import { successResponse, errorResponse } from '../utils/response';
 import { createAppointmentSchema, verifyPaymentSchema } from '../validators/schemas';
 import { ENV } from '../config/env';
@@ -124,6 +125,20 @@ export class AppointmentController {
       return successResponse(res, prescription, 'Prescription retrieved successfully');
     } catch (error: any) {
       return errorResponse(res, error.message || 'Failed to fetch prescription', 400);
+    }
+  }
+
+  static async getFeeBreakdown(req: Request, res: Response) {
+    try {
+      const { hospitalId, amount } = req.query;
+      if (!hospitalId) {
+        return errorResponse(res, 'hospitalId query parameter is required', 400);
+      }
+      const numAmount = Number(amount) || 0;
+      const breakdown = await PlatformFeeService.calculateFee(String(hospitalId), numAmount);
+      return successResponse(res, breakdown, 'Fee breakdown calculated successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to calculate fee breakdown', 500);
     }
   }
 }

@@ -16,6 +16,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   role: UserRole;
   status?: UserStatus;
   avatarUrl?: string | null;
@@ -28,6 +29,16 @@ export interface User {
     status?: HospitalStatus;
     logoUrl?: string;
     imageUrl?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    phone?: string;
+  };
+  hospitalAdmin?: {
+    id: string;
+    roleTitle?: string;
+    hospitalId: string;
   };
   doctor?: Doctor;
   hospitalSubAdmin?: HospitalSubAdmin;
@@ -63,6 +74,7 @@ export interface Hospital {
   doctorCount: number;
   departments: Department[];
   minConsultationFee?: number;
+  platformFeeConfig?: HospitalPlatformFee;
 }
 
 export interface Department {
@@ -179,6 +191,9 @@ export interface Payment {
   razorpayOrderId: string;
   razorpayPaymentId?: string;
   amount: number;
+  serviceAmount?: number;
+  platformFee?: number;
+  platformFeeType?: PlatformFeeType;
   currency: string;
   status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
   paymentMethod?: string;
@@ -389,6 +404,7 @@ export interface Appointment {
   bookingType: BookingType;
   consultationFee: number;
   platformFee: number;
+  platformFeeType?: PlatformFeeType;
   totalAmount: number;
   notes?: string;
   cancellationReason?: string;
@@ -473,4 +489,141 @@ export interface OpAnalyticsResponse {
     totalRevenue: number;
   };
   hierarchical: HierarchicalHospitalStats[];
+}
+
+export type PlatformFeeType = 'FIXED' | 'PERCENTAGE' | 'NONE';
+
+export interface HospitalPlatformFee {
+  id?: string;
+  hospitalId: string;
+  feeType: 'FIXED' | 'PERCENTAGE';
+  feeValue: number;
+  isEnabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface HospitalPlatformFeeConfigItem {
+  hospitalId: string;
+  hospitalName: string;
+  hospitalCode: string;
+  city: string;
+  state: string;
+  status: string;
+  logoUrl?: string;
+  platformFeeConfig: HospitalPlatformFee;
+  metrics: {
+    totalTransactions: number;
+    platformFeeCollected: number;
+    serviceRevenue: number;
+    totalRevenue: number;
+    averageFee: number;
+  };
+}
+
+export interface PlatformFeeRevenueReport {
+  summary: {
+    totalPlatformFeeCollected: number;
+    totalServiceRevenue: number;
+    totalRevenue: number;
+    totalTransactions: number;
+    platformFeePerTransaction: number;
+    activeHospitalsWithFee: number;
+    disabledHospitalsCount: number;
+  };
+  hospitalWiseRevenue: Array<{
+    hospitalId: string;
+    hospitalName: string;
+    hospitalCode: string;
+    city: string;
+    state: string;
+    feeType: 'FIXED' | 'PERCENTAGE';
+    feeValue: number;
+    isEnabled: boolean;
+    totalTransactions: number;
+    platformFeeCollected: number;
+    serviceRevenue: number;
+    totalCollected: number;
+    averagePlatformFee: number;
+  }>;
+  dateWiseReports: Array<{
+    date: string;
+    totalTransactions: number;
+    platformFee: number;
+    serviceAmount: number;
+    totalAmount: number;
+    averageFee: number;
+  }>;
+  recentTransactions: Array<{
+    id: string;
+    appointmentNumber: string;
+    appointmentDate: string;
+    timeSlot: string;
+    hospitalId: string;
+    hospitalName: string;
+    hospitalCode: string;
+    doctorName: string;
+    patientName: string;
+    patientMobile: string;
+    consultationFee: number;
+    platformFee: number;
+    platformFeeType: PlatformFeeType;
+    totalAmount: number;
+    status: string;
+    bookingType: string;
+    paymentStatus: string;
+    paymentMethod: string;
+    razorpayPaymentId?: string | null;
+  }>;
+}
+
+export interface FeeCalculationResponse {
+  hospitalId: string;
+  hospitalName?: string;
+  serviceAmount: number;
+  platformFee: number;
+  platformFeeType: PlatformFeeType;
+  feeValue: number;
+  isEnabled: boolean;
+  totalAmount: number;
+  description: string;
+}
+
+export interface Advertisement {
+  id: string;
+  title: string;
+  description?: string | null;
+  imageUrl: string;
+  redirectUrl?: string | null;
+  ownerType: 'SUPER_ADMIN' | 'HOSPITAL_ADMIN';
+  hospitalId?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdById?: string | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  hospital?: {
+    id: string;
+    name: string;
+    code: string;
+    logoUrl?: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdvertisementStats {
+  totalSlides: number;
+  activeSlides: number;
+  inactiveSlides: number;
+  remainingSlots: number;
+  maxSlots: number;
+}
+
+export interface AdvertisementResponse {
+  advertisements: Advertisement[];
+  stats: AdvertisementStats;
 }

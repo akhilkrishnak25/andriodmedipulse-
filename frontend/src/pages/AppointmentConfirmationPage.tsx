@@ -248,7 +248,10 @@ export const AppointmentConfirmationPage: React.FC = () => {
               </div>
               <p className="text-slate-600">
                 Total Paid: <strong>₹{appointment.totalAmount.toFixed(2)}</strong> (Consultation: ₹
-                {appointment.consultationFee} + Platform Fee: ₹{appointment.platformFee})
+                {appointment.consultationFee.toFixed(2)} + Platform Fee: ₹{appointment.platformFee.toFixed(2)}
+                {appointment.platformFeeType && appointment.platformFeeType !== 'NONE'
+                  ? ` [${appointment.platformFeeType}]`
+                  : ''})
               </p>
               <p className="text-slate-500 text-[11px]">
                 Payment Ref: {appointment.payment?.razorpayPaymentId || 'ONLINE_VERIFIED'}

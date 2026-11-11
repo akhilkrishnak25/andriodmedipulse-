@@ -1,9 +1,14 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import ExcelJS from 'exceljs';
 import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuditService } from '../utils/audit';
 import { NotificationService } from './notification.service';
+import { sanitizeDoctorPhotoUrl } from './doctor.service';
+import { generateTokens } from '../utils/jwt';
+import { ENV } from '../config/env';
 
 export class AdminService {
   static async getDashboardMetrics(hospitalId: string) {
@@ -201,7 +206,7 @@ export class AdminService {
   }
 
   static async getDoctors(hospitalId: string) {
-    return prisma.doctor.findMany({
+    const docs = await prisma.doctor.findMany({
       where: { hospitalId, status: { not: 'DELETED' } },
       include: {
         department: true,
@@ -213,6 +218,10 @@ export class AdminService {
       },
       orderBy: { name: 'asc' },
     });
+    return docs.map((d: any) => ({
+      ...d,
+      photoUrl: sanitizeDoctorPhotoUrl(d.photoUrl),
+    }));
   }
 
   static async addDoctor(hospitalId: string, doctorData: any, requestingUserId?: string) {
@@ -2373,5 +2382,434 @@ export class AdminService {
       watermarkEnabled: branding.watermarkType !== 'NONE',
     };
   }
+
+  // =========================================================================
+  // HOSPITAL ADMIN - EDIT PROFILE METHODS
+  // =========================================================================
+
+  /**
+   * Get authenticated hospital admin profile & affiliated hospital details
+   */
+  static async getAdminProfile(userId: string, hospitalId: string) {
+    const [user, hospital] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          hospitalAdmin: true,
+          hospitalSubAdmin: true,
+        },
+      }),
+      prisma.hospital.findUnique({
+        where: { id: hospitalId },
+      }),
+    ]);
+
+    if (!user) {
+      throw new Error('Admin user account not found');
+    }
+    if (!hospital) {
+      throw new Error('Hospital associated with this admin account not found');
+    }
+
+    const designation =
+      user.hospitalAdmin?.roleTitle ||
+      user.hospitalSubAdmin?.roleTitle ||
+      (user.role === 'HOSPITAL_SUB_ADMIN' ? 'Hospital Sub-Administrator' : 'Hospital Administrator');
+
+    return {
+      admin: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || hospital.phone || '',
+        role: user.role,
+        designation,
+        avatarUrl: user.avatarUrl,
+        status: user.status,
+        createdAt: user.createdAt,
+      },
+      hospital: {
+        id: hospital.id,
+        name: hospital.name,
+        code: hospital.code,
+        address: hospital.address,
+        city: hospital.city,
+        state: hospital.state,
+        pincode: hospital.pincode,
+        phone: hospital.phone,
+        email: hospital.email,
+        logoUrl: hospital.logoUrl,
+        imageUrl: hospital.imageUrl,
+        website: hospital.website,
+        rating: hospital.rating,
+      },
+    };
+  }
+
+  /**
+   * Update profile details (Name, Contact Number, Hospital Address, Designation, Hospital Name)
+   * Strictly forbids altering role or hospital ID.
+   */
+  static async updateAdminProfile(
+    userId: string,
+    hospitalId: string,
+    data: any,
+    requestingUserRole?: string
+  ) {
+    // Security enforcement: Never allow modifying role or hospitalId
+    delete data.role;
+    delete data.hospitalId;
+    delete data.id;
+    delete data.userId;
+    delete data.email; // Email must be changed via verifyEmailChangeOtp
+    delete data.password;
+    delete data.passwordHash;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { hospitalAdmin: true, hospitalSubAdmin: true },
+    });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // 1. Update User personal contact info if provided
+    const userUpdate: any = {};
+    if (data.adminName !== undefined && data.adminName.trim().length >= 2) {
+      userUpdate.name = data.adminName.trim();
+    }
+    if (data.phone !== undefined) {
+      userUpdate.phone = data.phone ? data.phone.trim() : null;
+    }
+    if (Object.keys(userUpdate).length > 0) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: userUpdate,
+      });
+    }
+
+    // 2. Update Designation (Role Title) in HospitalAdmin or HospitalSubAdmin
+    if (data.designation !== undefined && data.designation.trim().length >= 2) {
+      const cleanDesignation = data.designation.trim();
+      if (user.hospitalAdmin) {
+        await prisma.hospitalAdmin.update({
+          where: { userId },
+          data: { roleTitle: cleanDesignation },
+        });
+      } else if (user.hospitalSubAdmin) {
+        await prisma.hospitalSubAdmin.update({
+          where: { userId },
+          data: { roleTitle: cleanDesignation },
+        });
+      }
+    }
+
+    // 3. Update Hospital Profile Details if provided
+    const hospitalUpdate: any = {};
+    if (data.hospitalName !== undefined && data.hospitalName.trim().length >= 2) {
+      hospitalUpdate.name = data.hospitalName.trim();
+    }
+    if (data.hospitalAddress !== undefined && data.hospitalAddress.trim().length >= 3) {
+      hospitalUpdate.address = data.hospitalAddress.trim();
+    }
+    if (data.city !== undefined && data.city.trim().length >= 2) {
+      hospitalUpdate.city = data.city.trim();
+    }
+    if (data.state !== undefined && data.state.trim().length >= 2) {
+      hospitalUpdate.state = data.state.trim();
+    }
+    if (data.pincode !== undefined && data.pincode.trim().length >= 5) {
+      hospitalUpdate.pincode = data.pincode.trim();
+    }
+    if (Object.keys(hospitalUpdate).length > 0) {
+      await prisma.hospital.update({
+        where: { id: hospitalId },
+        data: hospitalUpdate,
+      });
+    }
+
+    // Audit Log
+    await AuditService.log({
+      userId,
+      action: 'UPDATE_ADMIN_PROFILE',
+      entity: 'User',
+      entityId: userId,
+      details: {
+        adminName: data.adminName,
+        phone: data.phone,
+        designation: data.designation,
+        hospitalName: data.hospitalName,
+      },
+    });
+
+    return this.getAdminProfile(userId, hospitalId);
+  }
+
+  /**
+   * Request OTP to change registered administrator email address
+   */
+  static async requestEmailChangeOtp(
+    userId: string,
+    hospitalId: string,
+    newEmail: string,
+    ipAddress?: string
+  ) {
+    const normalized = newEmail.toLowerCase().trim();
+
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) throw new Error('User not found');
+
+    if (currentUser.email.toLowerCase() === normalized) {
+      throw new Error('New email address must be different from your current registered email.');
+    }
+
+    // Check if new email is already in use by any other active user
+    const existing = await prisma.user.findUnique({ where: { email: normalized } });
+    if (existing && existing.id !== userId) {
+      throw new Error('This email address is already associated with another account in MedPulse.');
+    }
+
+    // Generate 6-digit OTP code
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const tokenHash = crypto.createHash('sha256').update(otpCode).digest('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    // Clear previous pending email-change tokens for this user and email
+    await prisma.accountToken.deleteMany({
+      where: {
+        email: normalized,
+        type: 'EMAIL_CHANGE',
+      },
+    });
+
+    await prisma.accountToken.create({
+      data: {
+        token: `${userId}:${tokenHash}`,
+        email: normalized,
+        type: 'EMAIL_CHANGE',
+        expiresAt,
+      },
+    });
+
+    // Send via SMTP if configured
+    if (ENV.OTP_MODE === 'smtp' && ENV.SMTP_HOST) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: ENV.SMTP_HOST,
+          port: ENV.SMTP_PORT,
+          secure: ENV.SMTP_SECURE,
+          auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS },
+        });
+
+        await transporter.sendMail({
+          from: ENV.OTP_FROM || 'no-reply@medpulse.org',
+          to: normalized,
+          subject: 'MedPulse – Verify Your New Registered Email Address',
+          text: `Hello ${currentUser.name},\n\nYour verification code to update your registered email address on MedPulse is: ${otpCode}\n\nThis verification code expires in 15 minutes. If you did not request this update, please secure your account immediately.\n\n– MedPulse Healthcare Team`,
+        });
+      } catch (mailErr) {
+        console.warn('Failed to dispatch email verification via SMTP:', mailErr);
+      }
+    } else {
+      console.log(`[MedPulse Admin Email Verification OTP] New Email: ${normalized} | OTP: ${otpCode}`);
+    }
+
+    return {
+      success: true,
+      message: `Verification code sent to ${normalized}. Please enter the 6-digit code to confirm.`,
+      demoOtp: ENV.OTP_MODE === 'console' || ENV.NODE_ENV !== 'production' ? otpCode : undefined,
+    };
+  }
+
+  /**
+   * Verify OTP and finalize email update in database and authentication system
+   */
+  static async verifyEmailChangeOtp(
+    userId: string,
+    hospitalId: string,
+    newEmail: string,
+    otpCode: string,
+    ipAddress?: string
+  ) {
+    const normalized = newEmail.toLowerCase().trim();
+    const tokenHash = crypto.createHash('sha256').update(otpCode.trim()).digest('hex');
+
+    const tokenRecord = await prisma.accountToken.findFirst({
+      where: {
+        token: `${userId}:${tokenHash}`,
+        email: normalized,
+        type: 'EMAIL_CHANGE',
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!tokenRecord) {
+      throw new Error('Invalid or expired verification code. Please request a new OTP.');
+    }
+
+    // Ensure email didn't get claimed while waiting for OTP
+    const collision = await prisma.user.findUnique({ where: { email: normalized } });
+    if (collision && collision.id !== userId) {
+      throw new Error('This email address was claimed by another user. Please choose a different email.');
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        hospitalAdmin: { include: { hospital: true } },
+        hospitalSubAdmin: { include: { hospital: true } },
+      },
+    });
+    if (!currentUser) throw new Error('User account not found');
+
+    const previousEmail = currentUser.email;
+
+    // Update in database transaction
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { email: normalized },
+      }),
+      prisma.accountToken.update({
+        where: { id: tokenRecord.id },
+        data: { isUsed: true },
+      }),
+      prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'ADMIN_EMAIL_CHANGED',
+          entity: 'User',
+          entityId: userId,
+          details: JSON.stringify({ previousEmail, newEmail: normalized }),
+          ipAddress,
+        },
+      }),
+    ]);
+
+    // Generate refreshed JWT tokens so auth session is continuously maintained
+    const subPermissions = currentUser.hospitalSubAdmin?.permissions
+      ? JSON.parse(currentUser.hospitalSubAdmin.permissions)
+      : undefined;
+
+    const tokens = generateTokens({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role as any,
+      hospitalId,
+      subAdminPermissions: subPermissions,
+    });
+
+    return {
+      success: true,
+      message: 'Registered email address successfully verified and updated in authentication system.',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        avatarUrl: updatedUser.avatarUrl,
+        hospital: currentUser.hospitalAdmin?.hospital || currentUser.hospitalSubAdmin?.hospital,
+      },
+      ...tokens,
+    };
+  }
+
+  /**
+   * Change admin password with current password verification, strength validation, and hashing
+   */
+  static async changeAdminPassword(
+    userId: string,
+    hospitalId: string,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+    ipAddress?: string
+  ) {
+    if (newPassword !== confirmPassword) {
+      throw new Error('New password and confirm password do not match');
+    }
+
+    // Password strength verification
+    if (newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long');
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      throw new Error('New password must contain at least one uppercase letter (A-Z)');
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      throw new Error('New password must contain at least one lowercase letter (a-z)');
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      throw new Error('New password must contain at least one number (0-9)');
+    }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) {
+      throw new Error('New password must contain at least one special character (!@#$%^&*...)');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        hospitalAdmin: { include: { hospital: true } },
+        hospitalSubAdmin: { include: { hospital: true } },
+      },
+    });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify current password
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new Error('Incorrect current password. Please enter your existing password correctly.');
+    }
+
+    // Prevent identical password
+    const isIdentical = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isIdentical) {
+      throw new Error('New password must be different from your existing current password.');
+    }
+
+    // Hash securely
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'ADMIN_PASSWORD_CHANGED',
+          entity: 'User',
+          entityId: userId,
+          details: JSON.stringify({ reason: 'Hospital admin password updated' }),
+          ipAddress,
+        },
+      }),
+    ]);
+
+    // Refreshed session tokens
+    const subPermissions = user.hospitalSubAdmin?.permissions
+      ? JSON.parse(user.hospitalSubAdmin.permissions)
+      : undefined;
+
+    const tokens = generateTokens({
+      userId: user.id,
+      email: user.email,
+      role: user.role as any,
+      hospitalId,
+      subAdminPermissions: subPermissions,
+    });
+
+    return {
+      success: true,
+      message: 'Password updated successfully. Your login credentials are now secured.',
+      ...tokens,
+    };
+  }
 }
+
 

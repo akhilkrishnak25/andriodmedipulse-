@@ -25,6 +25,12 @@ import {
   Check,
   X,
   RefreshCw,
+  BadgePercent,
+  Edit3,
+  Percent,
+  TrendingUp,
+  Receipt,
+  CalendarRange,
 } from 'lucide-react';
 import { superAdminApi } from '../api/superAdmin.api';
 import { Button } from '../components/ui/Button';
@@ -32,17 +38,18 @@ import { Badge } from '../components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { SuperAdminAdvertisementManagement } from '../components/superAdmin/SuperAdminAdvertisementManagement';
 
 export const SuperAdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<'hospitals' | 'pending' | 'doctors' | 'appointments' | 'audit' | 'analytics' | 'labs'>('hospitals');
+  const [activeTab, setActiveTab] = useState<'hospitals' | 'pending' | 'doctors' | 'appointments' | 'audit' | 'analytics' | 'labs' | 'platform-fee' | 'advertisements'>('hospitals');
 
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs'].includes(hash)) {
+      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs', 'platform-fee', 'advertisements'].includes(hash)) {
         setActiveTab(hash as any);
       }
     };
@@ -403,6 +410,126 @@ export const SuperAdminDashboardPage: React.FC = () => {
     });
   };
 
+  // Platform Fee States
+  const [platformFeeSubTab, setPlatformFeeSubTab] = useState<'configs' | 'reports'>('configs');
+  const [platformFeeSearch, setPlatformFeeSearch] = useState('');
+  const [feeFilterHospitalId, setFeeFilterHospitalId] = useState('');
+  const [feeFilterStartDate, setFeeFilterStartDate] = useState('');
+  const [feeFilterEndDate, setFeeFilterEndDate] = useState('');
+  const [editingFeeHospital, setEditingFeeHospital] = useState<any | null>(null);
+  const [editFeeType, setEditFeeType] = useState<'FIXED' | 'PERCENTAGE'>('FIXED');
+  const [editFeeValue, setEditFeeValue] = useState<string>('20');
+  const [editIsEnabled, setEditIsEnabled] = useState<boolean>(true);
+  const [isExportingFee, setIsExportingFee] = useState(false);
+
+  // Platform Fee Configs Query
+  const {
+    data: platformFeeConfigsData,
+    isLoading: isFeeConfigsLoading,
+    refetch: refetchFeeConfigs,
+  } = useQuery({
+    queryKey: ['super-admin-platform-fees', platformFeeSearch],
+    queryFn: () => superAdminApi.getPlatformFeeConfigs(platformFeeSearch),
+    enabled: activeTab === 'platform-fee',
+  });
+
+  // Platform Fee Revenue Reports Query
+  const {
+    data: platformFeeReportsData,
+    isLoading: isFeeReportsLoading,
+    refetch: refetchFeeReports,
+  } = useQuery({
+    queryKey: ['super-admin-fee-reports', feeFilterStartDate, feeFilterEndDate, feeFilterHospitalId],
+    queryFn: () =>
+      superAdminApi.getPlatformFeeReports({
+        startDate: feeFilterStartDate || undefined,
+        endDate: feeFilterEndDate || undefined,
+        hospitalId: feeFilterHospitalId || undefined,
+      }),
+    enabled: activeTab === 'platform-fee',
+  });
+
+  const updateFeeMutation = useMutation({
+    mutationFn: ({ hospitalId, data }: { hospitalId: string; data: any }) =>
+      superAdminApi.updateHospitalPlatformFee(hospitalId, data),
+    onSuccess: () => {
+      toast.success('Platform Fee Updated', 'Changes saved successfully for future transactions');
+      queryClient.invalidateQueries({ queryKey: ['super-admin-platform-fees'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin-fee-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'] });
+      setEditingFeeHospital(null);
+    },
+    onError: (err: any) => {
+      toast.error('Update Failed', err.message || 'Could not update fee configuration');
+    },
+  });
+
+  const handleOpenEditFee = (hospitalItem: any) => {
+    setEditingFeeHospital(hospitalItem);
+    setEditFeeType(hospitalItem.platformFeeConfig?.feeType || 'FIXED');
+    setEditFeeValue(String(hospitalItem.platformFeeConfig?.feeValue ?? 20));
+    setEditIsEnabled(hospitalItem.platformFeeConfig?.isEnabled ?? true);
+  };
+
+  const handleSaveFeeConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFeeHospital) return;
+    const numVal = parseFloat(editFeeValue);
+    if (isNaN(numVal) || numVal < 0) {
+      toast.error('Invalid Amount', 'Please enter a valid non-negative number');
+      return;
+    }
+    if (editFeeType === 'PERCENTAGE' && numVal > 100) {
+      toast.error('Invalid Percentage', 'Percentage fee cannot exceed 100%');
+      return;
+    }
+
+    updateFeeMutation.mutate({
+      hospitalId: editingFeeHospital.hospitalId,
+      data: {
+        feeType: editFeeType,
+        feeValue: numVal,
+        isEnabled: editIsEnabled,
+      },
+    });
+  };
+
+  const handleQuickToggleFee = (hospitalItem: any) => {
+    const nextEnabled = !hospitalItem.platformFeeConfig?.isEnabled;
+    updateFeeMutation.mutate({
+      hospitalId: hospitalItem.hospitalId,
+      data: {
+        feeType: hospitalItem.platformFeeConfig?.feeType || 'FIXED',
+        feeValue: hospitalItem.platformFeeConfig?.feeValue ?? 20,
+        isEnabled: nextEnabled,
+      },
+    });
+  };
+
+  const handleExportFeeExcel = async () => {
+    try {
+      setIsExportingFee(true);
+      const blob = await superAdminApi.exportPlatformFeeExcel({
+        startDate: feeFilterStartDate || undefined,
+        endDate: feeFilterEndDate || undefined,
+        hospitalId: feeFilterHospitalId || undefined,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `MedPulse_Platform_Fee_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Report Exported', 'Platform fee spreadsheet downloaded');
+    } catch (err: any) {
+      toast.error('Export Failed', err.message || 'Could not export fee report');
+    } finally {
+      setIsExportingFee(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Title & Top Bar */}
@@ -455,6 +582,15 @@ export const SuperAdminDashboardPage: React.FC = () => {
             }`}
           >
             Platform Appointments
+          </button>
+          <button
+            onClick={() => setActiveTab('platform-fee')}
+            className={`px-3.5 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'platform-fee' ? 'bg-white text-royal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BadgePercent className="w-3.5 h-3.5 text-indigo-600" />
+            Platform Fee Config
           </button>
           <button
             onClick={() => setActiveTab('audit')}
@@ -1620,6 +1756,719 @@ export const SuperAdminDashboardPage: React.FC = () => {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* TAB 7: PLATFORM FEE CONFIGURATION & REVENUE MANAGEMENT */}
+      {activeTab === 'platform-fee' && (
+        <div className="space-y-6">
+          {/* Platform Fee Header & Actions */}
+          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
+            <CardHeader className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <BadgePercent className="w-5 h-5 text-indigo-600" />
+                  Hospital Platform Fee Management & Revenue
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-1">
+                  Configure hospital-specific platform convenience charges (Fixed ₹ or Percentage %), toggle active status, and track date-wise fee revenue.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                  <button
+                    onClick={() => setPlatformFeeSubTab('configs')}
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                      platformFeeSubTab === 'configs'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    Hospital Configurations
+                  </button>
+                  <button
+                    onClick={() => setPlatformFeeSubTab('reports')}
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+                      platformFeeSubTab === 'reports'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Revenue Reports & Analytics
+                  </button>
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
+                  onClick={handleExportFeeExcel}
+                  isLoading={isExportingFee}
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-600" />
+                  Export Excel Report
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-slate-600 hover:text-slate-900"
+                  onClick={() => {
+                    refetchFeeConfigs();
+                    refetchFeeReports();
+                  }}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </CardHeader>
+
+            {/* Quick KPI Ribbon */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-slate-50/60 p-4 border-b border-slate-100 text-xs">
+              <div className="p-3">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Total Platform Fees</div>
+                <div className="text-xl font-black text-emerald-600 mt-0.5">
+                  ₹{(platformFeeReportsData?.summary.totalPlatformFeeCollected || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Lifetime platform revenue</div>
+              </div>
+
+              <div className="p-3">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Hospital Service Volume</div>
+                <div className="text-xl font-black text-slate-900 mt-0.5">
+                  ₹{(platformFeeReportsData?.summary.totalServiceRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Doctor consultation volume</div>
+              </div>
+
+              <div className="p-3">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Total Transactions</div>
+                <div className="text-xl font-black text-royal-600 mt-0.5">
+                  {(platformFeeReportsData?.summary.totalTransactions || 0).toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Paid hospital encounters</div>
+              </div>
+
+              <div className="p-3">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Avg Fee / Transaction</div>
+                <div className="text-xl font-black text-indigo-600 mt-0.5">
+                  ₹{(platformFeeReportsData?.summary.platformFeePerTransaction || 0).toFixed(2)}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Weighted platform yield</div>
+              </div>
+
+              <div className="p-3">
+                <div className="text-[10px] font-bold uppercase text-slate-400">Active Configurations</div>
+                <div className="text-xl font-black text-purple-600 mt-0.5">
+                  {platformFeeReportsData?.summary.activeHospitalsWithFee || 0} / {(platformFeeConfigsData || []).length}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Facilities with fee active</div>
+              </div>
+            </div>
+
+            <CardContent className="p-5">
+              {/* SUB-TAB 1: HOSPITAL CONFIGURATIONS */}
+              {platformFeeSubTab === 'configs' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search hospital by name, code, or city..."
+                        value={platformFeeSearch}
+                        onChange={(e) => setPlatformFeeSearch(e.target.value)}
+                        className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      {platformFeeSearch && (
+                        <button
+                          onClick={() => setPlatformFeeSearch('')}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-slate-500">
+                      Showing <strong>{(platformFeeConfigsData || []).length}</strong> registered hospital facilities
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                        <tr>
+                          <th className="p-3">Hospital Facility</th>
+                          <th className="p-3">Calculation Method</th>
+                          <th className="p-3">Configured Fee</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 text-right">Transactions</th>
+                          <th className="p-3 text-right">Fee Revenue</th>
+                          <th className="p-3 text-right">Gross Volume</th>
+                          <th className="p-3 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {isFeeConfigsLoading ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-slate-400">
+                              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
+                              Loading hospital platform fee configurations...
+                            </td>
+                          </tr>
+                        ) : (platformFeeConfigsData || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-slate-400">
+                              No hospital facilities found matching your search.
+                            </td>
+                          </tr>
+                        ) : (
+                          (platformFeeConfigsData || []).map((h) => {
+                            const cfg = h.platformFeeConfig || { feeType: 'FIXED', feeValue: 20, isEnabled: true };
+                            const isEnabled = Boolean(cfg.isEnabled);
+                            const isPercentage = cfg.feeType === 'PERCENTAGE';
+
+                            return (
+                              <tr key={h.hospitalId} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-900">{h.hospitalName}</div>
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                    <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded font-semibold text-slate-700">
+                                      {h.hospitalCode}
+                                    </span>
+                                    <span>{h.city}, {h.state}</span>
+                                  </div>
+                                </td>
+
+                                <td className="p-3">
+                                  {isPercentage ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                      <Percent className="w-3 h-3" />
+                                      Percentage Based
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                      <IndianRupee className="w-3 h-3" />
+                                      Fixed Amount
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="p-3">
+                                  <span className="font-extrabold text-sm text-slate-900">
+                                    {isPercentage ? `${cfg.feeValue}%` : `₹${cfg.feeValue}`}
+                                  </span>
+                                  <div className="text-[10px] text-slate-400">
+                                    {isPercentage ? `Per consultation value` : `Per appointment`}
+                                  </div>
+                                </td>
+
+                                <td className="p-3">
+                                  <button
+                                    onClick={() => handleQuickToggleFee(h)}
+                                    className="flex items-center gap-1.5 group cursor-pointer focus:outline-none"
+                                    title={isEnabled ? 'Click to disable fee' : 'Click to enable fee'}
+                                  >
+                                    {isEnabled ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200 transition-colors">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        Enabled
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 group-hover:bg-rose-200 transition-colors">
+                                        <X className="w-3 h-3 text-rose-600" />
+                                        Disabled (₹0)
+                                      </span>
+                                    )}
+                                  </button>
+                                </td>
+
+                                <td className="p-3 text-right font-semibold text-slate-700">
+                                  {h.metrics.totalTransactions}
+                                </td>
+
+                                <td className="p-3 text-right font-bold text-emerald-700">
+                                  ₹{h.metrics.platformFeeCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+
+                                <td className="p-3 text-right font-medium text-slate-600">
+                                  ₹{h.metrics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+
+                                <td className="p-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50 gap-1.5 h-8 px-2.5"
+                                    onClick={() => handleOpenEditFee(h)}
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    Configure Fee
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-TAB 2: REVENUE REPORTS & ANALYTICS */}
+              {platformFeeSubTab === 'reports' && (
+                <div className="space-y-6">
+                  {/* Filters Bar */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs">
+                    <div className="flex items-center gap-1 text-slate-500 font-bold">
+                      <Filter className="w-3.5 h-3.5" /> Filter Reports:
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">From:</span>
+                      <input
+                        type="date"
+                        value={feeFilterStartDate}
+                        onChange={(e) => setFeeFilterStartDate(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">To:</span>
+                      <input
+                        type="date"
+                        value={feeFilterEndDate}
+                        onChange={(e) => setFeeFilterEndDate(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">Hospital:</span>
+                      <select
+                        value={feeFilterHospitalId}
+                        onChange={(e) => setFeeFilterHospitalId(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">All Hospital Facilities</option>
+                        {(hospitals || []).map((h: any) => (
+                          <option key={h.id} value={h.id}>
+                            {h.name} ({h.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(feeFilterStartDate || feeFilterEndDate || feeFilterHospitalId) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setFeeFilterStartDate('');
+                          setFeeFilterEndDate('');
+                          setFeeFilterHospitalId('');
+                        }}
+                        className="text-xs text-rose-600 hover:text-rose-700 h-8"
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Hospital-Wise Breakdown Table */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-indigo-600" />
+                      Hospital-Wise Platform Fee Revenue Breakdown
+                    </h3>
+
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                          <tr>
+                            <th className="p-3">Hospital</th>
+                            <th className="p-3">Fee Rate</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3 text-right">Transactions</th>
+                            <th className="p-3 text-right">Platform Fee (₹)</th>
+                            <th className="p-3 text-right">Hospital Service (₹)</th>
+                            <th className="p-3 text-right">Gross Total (₹)</th>
+                            <th className="p-3 text-right">Avg Fee / Tx</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {isFeeReportsLoading ? (
+                            <tr>
+                              <td colSpan={8} className="p-6 text-center text-slate-400">
+                                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-1 text-indigo-500" />
+                                Calculating revenue breakdown...
+                              </td>
+                            </tr>
+                          ) : (platformFeeReportsData?.hospitalWiseRevenue || []).length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-6 text-center text-slate-400">
+                                No hospital revenue records found for selected period.
+                              </td>
+                            </tr>
+                          ) : (
+                            (platformFeeReportsData?.hospitalWiseRevenue || []).map((h) => (
+                              <tr key={h.hospitalId} className="hover:bg-slate-50">
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-900">{h.hospitalName}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">{h.hospitalCode} • {h.city}</div>
+                                </td>
+                                <td className="p-3 font-semibold text-slate-700">
+                                  {h.feeType === 'PERCENTAGE' ? `${h.feeValue}%` : `₹${h.feeValue}`}
+                                </td>
+                                <td className="p-3">
+                                  {h.isEnabled ? (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                      Active
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                                      Disabled
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right font-semibold text-slate-900">{h.totalTransactions}</td>
+                                <td className="p-3 text-right font-bold text-emerald-600">
+                                  ₹{h.platformFeeCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right font-medium text-slate-600">
+                                  ₹{h.serviceRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right font-extrabold text-slate-900">
+                                  ₹{h.totalCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right font-semibold text-indigo-600">
+                                  ₹{h.averagePlatformFee.toFixed(2)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Date-Wise Fee Reports */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider flex items-center gap-2">
+                      <CalendarRange className="w-4 h-4 text-indigo-600" />
+                      Date-Wise Platform Fee Collections
+                    </h3>
+
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-80">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px] sticky top-0">
+                          <tr>
+                            <th className="p-3">Date</th>
+                            <th className="p-3 text-right">Transactions</th>
+                            <th className="p-3 text-right">Platform Fee (₹)</th>
+                            <th className="p-3 text-right">Service Volume (₹)</th>
+                            <th className="p-3 text-right">Total Gross (₹)</th>
+                            <th className="p-3 text-right">Avg Fee / Tx</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {isFeeReportsLoading ? (
+                            <tr>
+                              <td colSpan={6} className="p-6 text-center text-slate-400">
+                                Loading date-wise reports...
+                              </td>
+                            </tr>
+                          ) : (platformFeeReportsData?.dateWiseReports || []).length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="p-6 text-center text-slate-400">
+                                No date-wise transactions recorded for this filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            (platformFeeReportsData?.dateWiseReports || []).map((d) => (
+                              <tr key={d.date} className="hover:bg-slate-50">
+                                <td className="p-3 font-bold text-slate-900 font-mono">{d.date}</td>
+                                <td className="p-3 text-right font-semibold text-slate-800">{d.totalTransactions}</td>
+                                <td className="p-3 text-right font-bold text-emerald-600">
+                                  ₹{d.platformFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right text-slate-600">
+                                  ₹{d.serviceAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right font-black text-slate-900">
+                                  ₹{d.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="p-3 text-right font-semibold text-indigo-600">
+                                  ₹{d.averageFee.toFixed(2)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Itemized Recent Transactions */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-indigo-600" />
+                      Recent Transactions Breakdown
+                    </h3>
+
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto max-h-96">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px] sticky top-0">
+                          <tr>
+                            <th className="p-3">Booking ID</th>
+                            <th className="p-3">Date</th>
+                            <th className="p-3">Hospital & Doctor</th>
+                            <th className="p-3">Patient</th>
+                            <th className="p-3 text-right">Service Fee (₹)</th>
+                            <th className="p-3 text-right">Platform Fee (₹)</th>
+                            <th className="p-3 text-right">Total Payable (₹)</th>
+                            <th className="p-3 text-center">Payment Ref</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {isFeeReportsLoading ? (
+                            <tr>
+                              <td colSpan={8} className="p-6 text-center text-slate-400">
+                                Loading transaction records...
+                              </td>
+                            </tr>
+                          ) : (platformFeeReportsData?.recentTransactions || []).length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-6 text-center text-slate-400">
+                                No recent transactions found.
+                              </td>
+                            </tr>
+                          ) : (
+                            (platformFeeReportsData?.recentTransactions || []).map((tx) => (
+                              <tr key={tx.id} className="hover:bg-slate-50">
+                                <td className="p-3 font-mono font-bold text-royal-700">{tx.appointmentNumber}</td>
+                                <td className="p-3 text-slate-500">{tx.appointmentDate}</td>
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-900">{tx.hospitalName}</div>
+                                  <div className="text-[10px] text-slate-500">{tx.doctorName}</div>
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-semibold text-slate-800">{tx.patientName}</div>
+                                  <div className="text-[10px] text-slate-400">{tx.patientMobile}</div>
+                                </td>
+                                <td className="p-3 text-right font-medium text-slate-700">
+                                  ₹{tx.consultationFee.toFixed(2)}
+                                </td>
+                                <td className="p-3 text-right font-bold text-emerald-600">
+                                  ₹{tx.platformFee.toFixed(2)}
+                                  <span className="block text-[9px] text-slate-400 font-normal">
+                                    {tx.platformFeeType}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right font-black text-slate-900">
+                                  ₹{tx.totalAmount.toFixed(2)}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    {tx.razorpayPaymentId || tx.paymentMethod || 'COUNTER'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* TAB 8: ADVERTISEMENT MANAGEMENT */}
+      {activeTab === 'advertisements' && (
+        <SuperAdminAdvertisementManagement />
+      )}
+
+      {/* EDIT PLATFORM FEE CONFIG MODAL */}
+      {editingFeeHospital && (
+        <Modal
+          isOpen={Boolean(editingFeeHospital)}
+          onClose={() => setEditingFeeHospital(null)}
+          title={`Configure Platform Fee – ${editingFeeHospital.hospitalName}`}
+          maxWidth="md"
+        >
+          <form onSubmit={handleSaveFeeConfig} className="space-y-4 text-xs">
+            {/* Notice Alert */}
+            <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl text-indigo-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-xs text-indigo-950">
+                <BadgePercent className="w-4 h-4 text-indigo-600" />
+                Hospital Fee Policy
+              </div>
+              <p className="text-[11px] text-indigo-800 leading-relaxed">
+                Changes apply only to future transactions. Completed appointments and existing payments retain their original fee breakdown for historical accounting.
+              </p>
+            </div>
+
+            {/* Fee Calculation Method Selector */}
+            <div className="space-y-2">
+              <label className="block font-bold text-slate-700">
+                Platform Fee Calculation Method <span className="text-rose-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditFeeType('FIXED')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    editFeeType === 'FIXED'
+                      ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                    <IndianRupee className="w-4 h-4 text-indigo-600" />
+                    Fixed Amount
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Flat rupee charge added per booking (e.g. ₹20 per transaction).
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditFeeType('PERCENTAGE')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    editFeeType === 'PERCENTAGE'
+                      ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                    <Percent className="w-4 h-4 text-indigo-600" />
+                    Percentage Based
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Calculated as % of consultation/service fee (e.g. 5% of ₹1,000).
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Fee Value Input */}
+            <div className="space-y-1.5">
+              <label className="block font-bold text-slate-700">
+                {editFeeType === 'PERCENTAGE' ? 'Platform Fee Percentage (%)' : 'Platform Fee Amount (₹)'}{' '}
+                <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 font-bold text-slate-400">
+                  {editFeeType === 'PERCENTAGE' ? '%' : '₹'}
+                </span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  max={editFeeType === 'PERCENTAGE' ? '100' : undefined}
+                  value={editFeeValue}
+                  onChange={(e) => setEditFeeValue(e.target.value)}
+                  placeholder={editFeeType === 'PERCENTAGE' ? 'e.g. 5' : 'e.g. 20'}
+                  className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-extrabold text-sm"
+                  required
+                />
+              </div>
+              <p className="text-[10px] text-slate-400">
+                {editFeeType === 'PERCENTAGE'
+                  ? 'Must be between 0% and 100%. Precision is rounded to 2 decimal places.'
+                  : 'Enter flat amount in rupees. Value will be added to the hospital service fee.'}
+              </p>
+            </div>
+
+            {/* Enable / Disable Toggle */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <div className="font-bold text-slate-900 text-xs">Enable Platform Fee</div>
+                <div className="text-[10px] text-slate-500">
+                  {editIsEnabled
+                    ? 'Platform fee will be added to patient bookings for this hospital.'
+                    : 'Fee is disabled. Patients will pay ₹0.00 platform charge.'}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                id="editFeeToggle"
+                checked={editIsEnabled}
+                onChange={(e) => setEditIsEnabled(e.target.checked)}
+                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+              />
+            </div>
+
+            {/* Live Simulation Preview */}
+            <div className="p-3.5 bg-slate-100/80 rounded-xl border border-slate-200 space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Live Calculation Preview (Sample ₹1,000 Consultation)
+              </div>
+              {(() => {
+                const sampleService = 1000;
+                const numVal = parseFloat(editFeeValue) || 0;
+                let simulatedFee = 0;
+                if (editIsEnabled && numVal > 0) {
+                  simulatedFee =
+                    editFeeType === 'PERCENTAGE'
+                      ? Math.round(((sampleService * numVal) / 100) * 100) / 100
+                      : Math.round(numVal * 100) / 100;
+                }
+                const simulatedTotal = sampleService + simulatedFee;
+
+                return (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Doctor Consultation Fee:</span>
+                      <span className="font-semibold text-slate-800">₹{sampleService.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>
+                        Platform Fee ({editIsEnabled ? (editFeeType === 'PERCENTAGE' ? `${numVal}%` : `Fixed ₹${numVal}`) : 'Disabled'}):
+                      </span>
+                      <span className="font-bold text-emerald-700">₹{simulatedFee.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-200 pt-1 text-slate-900 font-extrabold text-sm">
+                      <span>Total Patient Payable:</span>
+                      <span className="text-indigo-700 font-black">₹{simulatedTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingFeeHospital(null)}
+                disabled={updateFeeMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                isLoading={updateFeeMutation.isPending}
+              >
+                Save Configuration
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* ONBOARD HOSPITAL MODAL */}

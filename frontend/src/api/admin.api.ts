@@ -48,6 +48,38 @@ export const adminApi = {
 
   updateHospitalProfile: (data: any) => api.patch<any>('/admin/profile', data),
 
+  // Hospital Administrator Personal Profile & Security Management
+  getAdminProfile: () => api.get<{ admin: any; hospital: any }>('/admin/admin-profile'),
+
+  updateAdminProfile: (data: {
+    adminName?: string;
+    phone?: string;
+    designation?: string;
+    hospitalName?: string;
+    hospitalAddress?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  }) => api.patch<{ admin: any; hospital: any }>('/admin/admin-profile', data),
+
+  requestEmailChangeOtp: (newEmail: string) =>
+    api.post<{ success: boolean; message: string; demoOtp?: string }>(
+      '/admin/admin-profile/change-email/request-otp',
+      { newEmail }
+    ),
+
+  verifyEmailChangeOtp: (newEmail: string, otpCode: string) =>
+    api.post<{ success: boolean; message: string; user: any; accessToken: string; refreshToken: string }>(
+      '/admin/admin-profile/change-email/verify-otp',
+      { newEmail, otpCode }
+    ),
+
+  changeAdminPassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
+    api.post<{ success: boolean; message: string; accessToken: string; refreshToken: string }>(
+      '/admin/admin-profile/change-password',
+      data
+    ),
+
   getHospitalBranding: () => api.get<any>('/admin/branding').then((res) => res.data),
 
   updateHospitalBranding: (data: any) => api.put<any>('/admin/branding', data).then((res) => res.data),

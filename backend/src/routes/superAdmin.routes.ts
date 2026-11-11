@@ -38,4 +38,11 @@ router.patch('/labs/:id/reject', SuperAdminController.rejectLab);
 router.get('/analytics/op', SuperAdminController.getOpAnalytics);
 router.get('/export/excel', SuperAdminController.exportBookingsExcel);
 
+// Hospital Platform Fee Configuration & Revenue Oversight
+router.get('/platform-fees/hospitals', SuperAdminController.getHospitalPlatformFees);
+router.get('/platform-fees/hospitals/:hospitalId', SuperAdminController.getHospitalPlatformFee);
+router.patch('/platform-fees/hospitals/:hospitalId', SuperAdminController.updateHospitalPlatformFee);
+router.get('/platform-fees/reports', SuperAdminController.getPlatformFeeReports);
+router.get('/platform-fees/export/excel', SuperAdminController.exportPlatformFeeExcel);
+
 export default router;

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SuperAdminService } from '../services/superAdmin.service';
+import { PlatformFeeService } from '../services/platformFee.service';
 import { successResponse, errorResponse } from '../utils/response';
 import {
   createHospitalSchema,
@@ -234,7 +235,72 @@ export class SuperAdminController {
   }
 
   // -------------------------------------------------------------
-  // EXCEL EXPORT
+  // PLATFORM FEE CONFIGURATION & REVENUE REPORTS
+  // -------------------------------------------------------------
+  static async getHospitalPlatformFees(req: Request, res: Response) {
+    try {
+      const search = req.query.search as string;
+      const configs = await PlatformFeeService.getAllHospitalFeeConfigs(search);
+      return successResponse(res, configs, 'Hospital platform fee configurations retrieved');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to fetch platform fee configurations', 500);
+    }
+  }
+
+  static async getHospitalPlatformFee(req: Request, res: Response) {
+    try {
+      const hospitalId = req.params.hospitalId as string;
+      const config = await PlatformFeeService.getHospitalFeeConfig(hospitalId);
+      return successResponse(res, config, 'Hospital platform fee configuration retrieved');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to fetch hospital platform fee', 500);
+    }
+  }
+
+  static async updateHospitalPlatformFee(req: Request, res: Response) {
+    try {
+      const hospitalId = req.params.hospitalId as string;
+      const { feeType, feeValue, isEnabled } = req.body;
+      const updated = await PlatformFeeService.updateHospitalFeeConfig(
+        hospitalId,
+        { feeType, feeValue, isEnabled },
+        req.user?.id
+      );
+      return successResponse(res, updated, 'Hospital platform fee configuration updated successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to update platform fee configuration', 400);
+    }
+  }
+
+  static async getPlatformFeeReports(req: Request, res: Response) {
+    try {
+      const { startDate, endDate, hospitalId } = req.query;
+      const reports = await PlatformFeeService.getPlatformFeeRevenueReport({
+        startDate: startDate as string,
+        endDate: endDate as string,
+        hospitalId: hospitalId as string,
+      });
+      return successResponse(res, reports, 'Platform fee revenue reports calculated');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to generate platform fee reports', 500);
+    }
+  }
+
+  static async exportPlatformFeeExcel(req: Request, res: Response) {
+    try {
+      const { startDate, endDate, hospitalId } = req.query;
+      await PlatformFeeService.exportPlatformFeeExcel(res, {
+        startDate: startDate as string,
+        endDate: endDate as string,
+        hospitalId: hospitalId as string,
+      });
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to export platform fee report', 500);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // EXCEL EXPORT (OP Bookings)
   // -------------------------------------------------------------
   static async exportBookingsExcel(req: Request, res: Response) {
     try {

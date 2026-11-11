@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import { sanitizeDoctorPhotoUrl } from './doctor.service';
 
 export interface HospitalFilters {
   search?: string;
@@ -80,6 +81,7 @@ export class HospitalService {
             user: { select: { avatarUrl: true } },
           },
         },
+        platformFeeConfig: true,
       },
       orderBy,
     });
@@ -151,6 +153,7 @@ export class HospitalService {
             user: { select: { avatarUrl: true } },
           },
         },
+        platformFeeConfig: true,
       },
     });
 
@@ -172,6 +175,10 @@ export class HospitalService {
       ...hospital,
       imageUrl: effectiveImageUrl,
       logoUrl: effectiveLogoUrl,
+      doctors: hospital.doctors.map((d: any) => ({
+        ...d,
+        photoUrl: sanitizeDoctorPhotoUrl(d.photoUrl),
+      })),
       facilities: JSON.parse(hospital.facilities || '[]'),
       doctorCount: hospital.doctors.length,
     };
@@ -222,7 +229,7 @@ export class HospitalService {
       ];
     }
 
-    return prisma.doctor.findMany({
+    const docs = await prisma.doctor.findMany({
       where: whereClause,
       include: {
         department: {
@@ -235,6 +242,11 @@ export class HospitalService {
       },
       orderBy: { experienceYears: 'desc' },
     });
+
+    return docs.map((doc: any) => ({
+      ...doc,
+      photoUrl: sanitizeDoctorPhotoUrl(doc.photoUrl),
+    }));
   }
 
   static async getPopularDepartments() {

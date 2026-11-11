@@ -37,6 +37,13 @@ router.post('/departments', AdminController.addDepartment);
 router.get('/profile', AdminController.getHospitalProfile);
 router.patch('/profile', AdminController.updateHospitalProfile);
 
+// Hospital Administrator Personal Profile & Security Management
+router.get('/admin-profile', AdminController.getAdminProfile);
+router.patch('/admin-profile', AdminController.updateAdminProfile);
+router.post('/admin-profile/change-email/request-otp', AdminController.requestEmailChangeOtp);
+router.post('/admin-profile/change-email/verify-otp', AdminController.verifyEmailChangeOtp);
+router.post('/admin-profile/change-password', AdminController.changeAdminPassword);
+
 // Hospital PDF Branding Settings
 router.get('/branding', AdminController.getHospitalBranding);
 router.put('/branding', AdminController.updateHospitalBranding);

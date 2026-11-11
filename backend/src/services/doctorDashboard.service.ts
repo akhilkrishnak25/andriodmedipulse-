@@ -8,6 +8,7 @@ import { NotificationService } from './notification.service';
 import { generateClinicalConsultationPdf } from '../utils/pdf';
 import { formatBP, formatSystolicDiastolicBP, resolveConsultationVitals } from '../utils/vitals';
 import { sortMedicinesByPriority } from '../utils/medicines';
+import { sanitizeDoctorPhotoUrl } from './doctor.service';
 
 export class DoctorDashboardService {
   static async getDoctorAppointments(doctorId: string, date?: string) {
@@ -108,7 +109,7 @@ export class DoctorDashboardService {
   }
 
   static async getDoctorProfile(doctorId: string) {
-    return prisma.doctor.findUnique({
+    const doc = await prisma.doctor.findUnique({
       where: { id: doctorId },
       include: {
         user: {
@@ -128,6 +129,12 @@ export class DoctorDashboardService {
         leaves: { orderBy: { startDate: 'desc' } },
       },
     });
+    if (!doc) return null;
+    return {
+      ...doc,
+      photoUrl: sanitizeDoctorPhotoUrl(doc.photoUrl),
+      user: doc.user ? { ...doc.user, avatarUrl: sanitizeDoctorPhotoUrl(doc.user.avatarUrl) } : null,
+    };
   }
 
   static async updateDoctorProfile(doctorId: string, data: any, requestingUserId?: string) {

@@ -26,6 +26,7 @@ model User {
   labTechnician    LabTechnician?
   pharmacyStaff    PharmacyStaff?
   auditLogs        AuditLog[]
+  advertisements   Advertisement[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -67,6 +68,8 @@ model Hospital {
   notifications       Notification[]
   reviews             Review[]
   branding            HospitalBranding?
+  platformFeeConfig   HospitalPlatformFee?
+  advertisements      Advertisement[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 }
@@ -244,6 +247,7 @@ model Appointment {
   bookingType        String           @default("ONLINE") // ONLINE or OFFLINE
   consultationFee    Float
   platformFee        Float            @default(20)
+  platformFeeType    String?          @default("FIXED")
   totalAmount        Float
   cancellationReason String?
   notes              String?          @db.Text
@@ -293,6 +297,9 @@ model Payment {
   razorpayPaymentId  String?      @unique
   razorpaySignature  String?
   amount             Float
+  serviceAmount      Float?
+  platformFee        Float?
+  platformFeeType    String?
   currency           String       @default("INR")
   status             String       @default("PENDING")
   paymentMethod      String?
@@ -728,4 +735,37 @@ model HospitalBranding {
   updatedAt         DateTime  @updatedAt
 
   @@index([hospitalId])
+}
+
+model HospitalPlatformFee {
+  id         String   @id @default(uuid())
+  hospitalId String   @unique
+  hospital   Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  feeType    String   @default("FIXED") // FIXED or PERCENTAGE
+  feeValue   Float    @default(20)
+  isEnabled  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([hospitalId])
+}
+
+model Advertisement {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  imageUrl    String    @db.Text
+  redirectUrl String?   @db.Text
+  ownerType   String    @default("SUPER_ADMIN") // SUPER_ADMIN or HOSPITAL_ADMIN
+  hospitalId  String?
+  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  displayOrder Int      @default(0)
+  isActive    Boolean   @default(true)
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([ownerType, isActive, displayOrder])
+  @@index([hospitalId, isActive, displayOrder])
 }

@@ -1,5 +1,21 @@
 import prisma from '../config/prisma';
 
+export const sanitizeDoctorPhotoUrl = (photoUrl?: string | null): string | null => {
+  if (!photoUrl || typeof photoUrl !== 'string') return null;
+  const trimmed = photoUrl.trim();
+  if (!trimmed) return null;
+  if (
+    trimmed.includes('unsplash.com') ||
+    trimmed.includes('dicebear.com') ||
+    trimmed.includes('pravatar.cc') ||
+    trimmed.includes('ui-avatars.com') ||
+    trimmed.includes('placeholder')
+  ) {
+    return null;
+  }
+  return trimmed;
+};
+
 export class DoctorService {
   static async listDoctors(query: {
     hospitalId?: string;
@@ -72,6 +88,7 @@ export class DoctorService {
       const { reviews, ...rest } = doc;
       return {
         ...rest,
+        photoUrl: sanitizeDoctorPhotoUrl(doc.photoUrl),
         averageRating: Number(avg.toFixed(1)),
         reviewCount: reviews.length,
       };
@@ -96,6 +113,7 @@ export class DoctorService {
             imageUrl: true,
             logoUrl: true,
             status: true,
+            platformFeeConfig: true,
           },
         },
         department: {
@@ -131,6 +149,7 @@ export class DoctorService {
 
     return {
       ...doctor,
+      photoUrl: sanitizeDoctorPhotoUrl(doctor.photoUrl),
       averageRating: Number(ratingAvg.toFixed(1)),
       reviewCount: doctor.reviews.length,
     };

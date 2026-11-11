@@ -11,6 +11,8 @@ import {
   LogOut,
   ExternalLink,
   Menu,
+  Megaphone,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
@@ -25,7 +27,7 @@ export const AdminLayout: React.FC = () => {
   useEffect(() => {
     const syncTab = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['appointments', 'doctors', 'patients', 'staff', 'subadmins', 'notifications', 'labs'].includes(hash)) {
+      if (['appointments', 'doctors', 'patients', 'staff', 'subadmins', 'notifications', 'labs', 'advertisements', 'profile'].includes(hash)) {
         setCurrentTab(hash);
       } else {
         setCurrentTab('appointments');
@@ -118,10 +120,24 @@ export const AdminLayout: React.FC = () => {
       allowed: !isSubAdmin || subPermissions.includes('LAB_MANAGEMENT'),
     },
     {
+      id: 'advertisements',
+      label: 'Advertisements (Max 3)',
+      icon: Megaphone,
+      color: 'text-amber-400',
+      allowed: true,
+    },
+    {
       id: 'notifications',
       label: 'System Notifications',
       icon: Bell,
       color: 'text-gold-400',
+      allowed: true,
+    },
+    {
+      id: 'profile',
+      label: 'Admin Profile',
+      icon: UserCog,
+      color: 'text-sky-400',
       allowed: true,
     },
   ];
@@ -217,18 +233,28 @@ export const AdminLayout: React.FC = () => {
             </span>
           </Link>
 
-          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 px-1">
-            <div className="overflow-hidden mr-2">
-              <p className="font-semibold text-white text-xs truncate">{user.name}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+          <div className="pt-1 border-t border-slate-800/80 px-1 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="overflow-hidden mr-2">
+                <p className="font-semibold text-white text-xs truncate">{user.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+              </div>
+              <button
+                onClick={logout}
+                title="Sign Out"
+                className="p-2 rounded-xl text-rose-400 bg-rose-500/10 hover:bg-rose-500/25 hover:text-rose-300 transition-colors border border-rose-500/20"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={logout}
-              title="Sign Out"
-              className="p-2 rounded-xl text-rose-400 bg-rose-500/10 hover:bg-rose-500/25 hover:text-rose-300 transition-colors border border-rose-500/20"
+            <a
+              href="#profile"
+              onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-royal-600 text-slate-200 hover:text-white text-[11px] font-bold transition-colors border border-slate-700"
             >
-              <LogOut className="w-4 h-4" />
-            </button>
+              <UserCog className="w-3.5 h-3.5" />
+              Edit Profile
+            </a>
           </div>
         </div>
       </aside>

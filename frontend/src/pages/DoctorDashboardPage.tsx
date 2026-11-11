@@ -41,6 +41,7 @@ import {
 import { doctorDashboardApi } from '../api/doctor.api';
 import { labApi } from '../api/lab.api';
 import { uploadApi, getMediaUrl } from '../api/client';
+import { DoctorProfileImage, isUploadedDoctorImage } from '../components/common/DoctorProfileImage';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -109,6 +110,7 @@ export const DoctorDashboardPage: React.FC = () => {
 
   // Profile Photo Upload State (Requirement 20)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoRemovedLocally, setPhotoRemovedLocally] = useState(false);
 
   // PDF Document Generation State (Requirement 13)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -1458,6 +1460,7 @@ export const DoctorDashboardPage: React.FC = () => {
         try {
           const base64Data = reader.result as string;
           const result = await uploadApi.uploadProfilePhoto(base64Data);
+          setPhotoRemovedLocally(false);
           updateUser({ avatarUrl: result.url });
           refetchProfile();
           toast.success('Profile Photo Updated', 'Your doctor avatar has been updated successfully.');
@@ -1482,11 +1485,13 @@ export const DoctorDashboardPage: React.FC = () => {
     if (!window.confirm('Remove doctor profile photo?')) return;
     setIsUploadingPhoto(true);
     try {
+      setPhotoRemovedLocally(true);
       await uploadApi.removeProfilePhoto();
       updateUser({ avatarUrl: null });
-      refetchProfile();
-      toast.success('Photo Removed', 'Profile avatar reset to default.');
+      await refetchProfile();
+      toast.success('Photo Removed', 'Profile photo removed successfully.');
     } catch (err: any) {
+      setPhotoRemovedLocally(false);
       toast.error('Removal Failed', err.message || 'Could not remove photo');
     } finally {
       setIsUploadingPhoto(false);
@@ -2248,19 +2253,13 @@ export const DoctorDashboardPage: React.FC = () => {
           <Card className="rounded-2xl border-slate-200 shadow-sm p-6">
             <div className="flex flex-col sm:flex-row items-center gap-6">
               <div className="relative group">
-                <div className="w-24 h-24 rounded-2xl overflow-hidden bg-royal-50 border-2 border-royal-200 flex items-center justify-center text-royal-700 shadow-inner">
-                  {(user?.avatarUrl || profile?.user?.avatarUrl || profile?.avatarUrl) ? (
-                    <img
-                      src={getMediaUrl(user?.avatarUrl || profile?.user?.avatarUrl || profile?.avatarUrl)}
-                      alt="Doctor Profile"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80';
-                      }}
-                    />
-                  ) : (
-                    <User className="w-12 h-12 text-royal-400" />
-                  )}
+                <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 border-2 border-slate-200 flex items-center justify-center shadow-inner">
+                  <DoctorProfileImage
+                    photoUrl={photoRemovedLocally ? null : (user?.avatarUrl || profile?.user?.avatarUrl || profile?.photoUrl || profile?.avatarUrl)}
+                    name="Doctor Profile"
+                    className="w-full h-full"
+                    blankClassName="bg-slate-100"
+                  />
                   {isUploadingPhoto && (
                     <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
                       <InlineSpinner size="md" className="text-royal-600" />
@@ -2309,7 +2308,7 @@ export const DoctorDashboardPage: React.FC = () => {
                   >
                     Change photo
                   </label>
-                  {(user?.avatarUrl || profile?.user?.avatarUrl || profile?.avatarUrl) && (
+                  {!photoRemovedLocally && isUploadedDoctorImage(user?.avatarUrl || profile?.user?.avatarUrl || profile?.photoUrl || profile?.avatarUrl) && (
                     <>
                       <span className="text-slate-300">•</span>
                       <button

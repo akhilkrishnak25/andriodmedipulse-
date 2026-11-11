@@ -1,5 +1,5 @@
 import { api, getApiBaseUrl } from './client';
-import { Appointment, QueueStatus } from '../types';
+import { Appointment, QueueStatus, FeeCalculationResponse } from '../types';
 
 export interface CreateAppointmentDTO {
   hospitalId: string;
@@ -35,6 +35,11 @@ export interface PendingAppointmentResponse {
 }
 
 export const appointmentsApi = {
+  getFeeBreakdown: (hospitalId: string, amount: number) =>
+    api.get<FeeCalculationResponse>(
+      `/appointments/fee-breakdown?hospitalId=${encodeURIComponent(hospitalId)}&amount=${amount}`
+    ),
+
   create: (dto: CreateAppointmentDTO) =>
     api.post<PendingAppointmentResponse>('/appointments', dto),
 

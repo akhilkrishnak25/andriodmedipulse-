@@ -21,6 +21,7 @@ import {
 import { doctorsApi } from '../api/doctors.api';
 import { appointmentsApi, CreateAppointmentDTO } from '../api/appointments.api';
 import { getMediaUrl } from '../api/client';
+import { DoctorProfileImage } from '../components/common/DoctorProfileImage';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardContent } from '../components/ui/Card';
@@ -252,21 +253,36 @@ export const BookingPage: React.FC = () => {
     );
   }
 
-  const platformFee = 20;
-  const totalAmount = doctor.consultationFee + platformFee;
+  const hospitalConfig = (doctor.hospital as any)?.platformFeeConfig;
+  const isFeeEnabled = hospitalConfig ? hospitalConfig.isEnabled : true;
+  const feeType = hospitalConfig?.feeType || 'FIXED';
+  const feeValue = hospitalConfig?.feeValue ?? 20;
+
+  let platformFee = 0;
+  let feeDescription = '';
+
+  if (!isFeeEnabled || doctor.consultationFee <= 0) {
+    platformFee = 0;
+    feeDescription = 'Free (Waived)';
+  } else if (feeType === 'PERCENTAGE') {
+    platformFee = Math.round(((doctor.consultationFee * feeValue) / 100) * 100) / 100;
+    feeDescription = `${feeValue}% of ₹${doctor.consultationFee.toFixed(2)}`;
+  } else {
+    platformFee = Math.round(feeValue * 100) / 100;
+    feeDescription = `Fixed ₹${feeValue.toFixed(2)}`;
+  }
+
+  const totalAmount = Math.round((doctor.consultationFee + platformFee) * 100) / 100;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* HEADER / DOCTOR INFO SNIPPET */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <img
-            src={getMediaUrl(doctor.photoUrl) || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80'}
-            alt={doctor.name}
-            className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shrink-0"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80';
-            }}
+          <DoctorProfileImage
+            photoUrl={doctor.photoUrl}
+            name={doctor.name}
+            className="w-16 h-16 rounded-2xl border border-slate-200 shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
@@ -777,19 +793,30 @@ export const BookingPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl border border-slate-200 space-y-3">
-            <h3 className="font-bold text-slate-900 text-sm">Fee Breakdown</h3>
+          <div className="p-5 rounded-2xl border border-slate-200 space-y-3 bg-slate-50/50">
+            <h3 className="font-bold text-slate-900 text-sm">Payment Breakdown</h3>
             <div className="space-y-2 text-xs text-slate-600">
+              <div className="flex justify-between">
+                <span>Hospital / Facility:</span>
+                <span className="font-bold text-slate-900">{doctor.hospital?.name || 'Network Hospital'}</span>
+              </div>
               <div className="flex justify-between">
                 <span>Doctor Consultation Fee:</span>
                 <span className="font-bold text-slate-900">₹{doctor.consultationFee.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Platform Convenience Fee:</span>
-                <span className="font-bold text-slate-900">₹{platformFee.toFixed(2)}</span>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1.5">
+                  <span>Platform Fee:</span>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-semibold">
+                    {feeDescription}
+                  </span>
+                </div>
+                <span className="font-bold text-slate-900">
+                  {platformFee > 0 ? `₹${platformFee.toFixed(2)}` : '₹0.00 (Waived)'}
+                </span>
               </div>
-              <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-100 pt-2">
-                <span>Total Amount Payable:</span>
+              <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200 pt-2">
+                <span>Final Payable Amount:</span>
                 <span className="text-royal-600 text-xl font-black">₹{totalAmount.toFixed(2)}</span>
               </div>
             </div>
@@ -831,6 +858,10 @@ export const BookingPage: React.FC = () => {
 
           <div className="max-w-md mx-auto bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex justify-between text-xs text-slate-600">
+              <span>Hospital:</span>
+              <span className="font-bold text-slate-900">{doctor.hospital?.name || 'Network Hospital'}</span>
+            </div>
+            <div className="flex justify-between text-xs text-slate-600">
               <span>Appointment:</span>
               <span className="font-bold text-slate-900">{doctor.name}</span>
             </div>
@@ -838,8 +869,18 @@ export const BookingPage: React.FC = () => {
               <span>Date & Time:</span>
               <span className="font-bold text-slate-900">{selectedDate} @ {selectedSlot}</span>
             </div>
+            <div className="flex justify-between text-xs text-slate-600 border-t border-slate-200/60 pt-2">
+              <span>Doctor Consultation Fee:</span>
+              <span className="font-semibold text-slate-800">₹{doctor.consultationFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-slate-600">
+              <span>Platform Fee ({feeDescription}):</span>
+              <span className="font-semibold text-slate-800">
+                {platformFee > 0 ? `₹${platformFee.toFixed(2)}` : '₹0.00 (Waived)'}
+              </span>
+            </div>
             <div className="flex justify-between text-sm font-bold text-slate-900 border-t border-slate-200 pt-2">
-              <span>Total Payable:</span>
+              <span>Final Payable Amount:</span>
               <span className="text-royal-600 text-xl font-black">₹{totalAmount.toFixed(2)}</span>
             </div>
           </div>
