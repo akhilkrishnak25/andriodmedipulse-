@@ -29,6 +29,7 @@ import { useToast } from '../components/ui/Toast';
 import { Prescription } from '../types';
 import { RocketWheelLogo } from '../components/common/RocketWheelLogo';
 import { sortMedicinesByPriority } from '../utils/medicines';
+import { saveOrOpenBlob } from '../utils/fileDownload';
 
 export const PharmacyDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -142,17 +143,10 @@ export const PharmacyDashboardPage: React.FC = () => {
     toast.info('Preparing Print Document', 'Generating revised prescription document...');
     try {
       const blob = await pharmacyApi.downloadPrescriptionPdf(prescriptionId);
-      const url = window.URL.createObjectURL(blob);
-      const printWindow = window.open(url, '_blank');
-      if (!printWindow) {
-        // Fallback to download if browser blocked popup
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Prescription-${prescriptionId.slice(0, 8)}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      await saveOrOpenBlob(blob, `Prescription-${prescriptionId.slice(0, 8)}.pdf`, {
+        openInNewTab: true,
+        shareTitle: 'Print Revised Prescription',
+      });
       toast.success('Print Document Ready', 'Prescription opened. Ready to print on hospital letterhead.');
     } catch (err: any) {
       toast.error('Print Failed', err.message || 'Could not load prescription document');
@@ -166,14 +160,8 @@ export const PharmacyDashboardPage: React.FC = () => {
     setPrintingRxId(prescriptionId);
     try {
       const blob = await pharmacyApi.downloadPrescriptionPdf(prescriptionId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Prescription-${(patientName || 'Patient').replace(/\s+/g, '_')}-${prescriptionId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const filename = `Prescription-${(patientName || 'Patient').replace(/\s+/g, '_')}-${prescriptionId.slice(0, 8)}.pdf`;
+      await saveOrOpenBlob(blob, filename, { shareTitle: 'Revised Prescription PDF' });
       toast.success('Downloaded', 'Revised prescription PDF downloaded successfully.');
     } catch (err: any) {
       toast.error('Download Failed', err.message || 'Could not download prescription PDF');
@@ -204,7 +192,7 @@ export const PharmacyDashboardPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top Navbar */}
-      <header className="bg-slate-900 text-white px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-slate-800">
+      <header className="bg-slate-900 text-white px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-slate-800 safe-top-inset">
         <div className="flex items-center gap-3">
           <RocketWheelLogo size="sm" />
           <div className="border-l border-slate-700 pl-3">

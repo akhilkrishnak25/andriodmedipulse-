@@ -13,7 +13,7 @@ export const Navbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
       {/* Top Banner in Deep Royal Blue */}
-      <div className="bg-[#15179f] text-slate-200 text-xs py-1.5 px-4 border-b border-royal-700/50">
+      <div className="bg-[#15179f] text-slate-200 text-xs py-1.5 px-4 border-b border-royal-700/50 safe-top-inset">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline">24/7 National Emergency OPD Hotline:</span>

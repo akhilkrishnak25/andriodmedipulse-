@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { RocketWheelLogo } from '../components/common/RocketWheelLogo';
+import { isNativeApp } from '../utils/platform';
 
 export const SuperAdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -208,7 +209,7 @@ export const SuperAdminLayout: React.FC = () => {
         <div className="p-3 border-t border-slate-800 bg-slate-950/60 space-y-2 text-xs">
           <Link
             to="/"
-            target="_blank"
+            target={isNativeApp() ? undefined : '_blank'}
             className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <span className="flex items-center gap-2">
@@ -234,7 +235,7 @@ export const SuperAdminLayout: React.FC = () => {
       </aside>
 
       {/* Main Content Area with 3 lines symbol toggle */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto safe-top-inset">
         {/* Top Control Bar containing 3 lines symbol button to toggle sidebar */}
         <div className="px-4 sm:px-8 pt-4 pb-2 flex items-center justify-between">
           <button

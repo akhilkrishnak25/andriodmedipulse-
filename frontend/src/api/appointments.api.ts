@@ -1,5 +1,6 @@
 import { api, getApiBaseUrl } from './client';
 import { Appointment, QueueStatus, FeeCalculationResponse } from '../types';
+import { saveOrOpenBlob } from '../utils/fileDownload';
 
 export interface CreateAppointmentDTO {
   hospitalId: string;
@@ -71,13 +72,8 @@ export const appointmentsApi = {
       throw new Error(errJson?.message || 'Failed to download Digital OP PDF');
     }
     const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || `Digital_OP_${idOrOp}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    await saveOrOpenBlob(blob, filename || `Digital_OP_${idOrOp}.pdf`, {
+      shareTitle: `Digital OP Slip - ${idOrOp}`,
+    });
   },
 };

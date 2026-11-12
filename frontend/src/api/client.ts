@@ -1,14 +1,19 @@
+import { DEFAULT_PRODUCTION_BACKEND, isNativeApp } from '../utils/platform';
+
 export const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || '/api';
 
 /**
- * Returns the effective API base URL, properly resolving backend host on Render or fallback.
+ * Returns the effective API base URL, properly resolving backend host on Render, native app, or fallback.
  */
 export function getApiBaseUrl(): string {
   if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
     return API_BASE_URL.replace(/\/$/, '');
   }
-  if (typeof window !== 'undefined' && window.location.hostname.includes('.onrender.com')) {
-    return 'https://medipulse-backend-veca.onrender.com/api';
+  if (
+    isNativeApp() ||
+    (typeof window !== 'undefined' && window.location.hostname.includes('.onrender.com'))
+  ) {
+    return `${DEFAULT_PRODUCTION_BACKEND}/api`;
   }
   return API_BASE_URL.replace(/\/$/, '');
 }
@@ -27,8 +32,11 @@ export function getMediaUrl(url?: string | null): string {
   let backendHost = '';
   if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
     backendHost = API_BASE_URL.replace(/\/api\/?$/, '');
-  } else if (typeof window !== 'undefined' && window.location.hostname.includes('.onrender.com')) {
-    backendHost = 'https://medipulse-backend-veca.onrender.com';
+  } else if (
+    isNativeApp() ||
+    (typeof window !== 'undefined' && window.location.hostname.includes('.onrender.com'))
+  ) {
+    backendHost = DEFAULT_PRODUCTION_BACKEND;
   }
 
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;

@@ -1,4 +1,4 @@
-import { api, API_BASE_URL } from './client';
+import { api, getApiBaseUrl } from './client';
 import { Appointment, MedicineCatalogItem } from '../types';
 
 export const doctorDashboardApi = {
@@ -154,7 +154,7 @@ export const doctorDashboardApi = {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE_URL}/doctor/appointments/${appointmentId}/pdf`, {
+    const res = await fetch(`${getApiBaseUrl()}/doctor/appointments/${appointmentId}/pdf`, {
       method: 'GET',
       headers,
     });
@@ -196,7 +196,7 @@ export const doctorDashboardApi = {
     if (params?.status && params.status !== 'ALL') query.append('status', params.status);
     const qs = query.toString() ? `?${query.toString()}` : '';
 
-    const res = await fetch(`${API_BASE_URL}/doctor/export/excel${qs}`, {
+    const res = await fetch(`${getApiBaseUrl()}/doctor/export/excel${qs}`, {
       method: 'GET',
       headers,
     });

@@ -61,6 +61,7 @@ coverage/
 # Temporary files
 tmp/
 temp/
+*.tmp
 .cache/
 */.cache/
 .neon

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PublicLayout } from './layouts/PublicLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { DoctorLayout } from './layouts/DoctorLayout';
@@ -28,6 +28,25 @@ import { StaffRegistrationPage } from './pages/StaffRegistrationPage';
 import { LabTestsPage } from './pages/LabTestsPage';
 import { Button } from './components/ui/Button';
 import { ScrollToTop } from './components/common/ScrollToTop';
+import { NetworkStatusBanner } from './components/common/NetworkStatusBanner';
+import { PwaInstallPrompt } from './components/common/PwaInstallPrompt';
+import { initNativeApp } from './utils/nativeApp';
+
+const NativeAppBridge: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathRef = useRef(location.pathname);
+
+  useEffect(() => {
+    pathRef.current = location.pathname;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    return initNativeApp(navigate, () => pathRef.current);
+  }, [navigate]);
+
+  return null;
+};
 
 // 404 Not Found Component
 const NotFoundPage = () => (
@@ -46,7 +65,10 @@ const NotFoundPage = () => (
 export const App: React.FC = () => {
   return (
     <>
+      <NativeAppBridge />
+      <NetworkStatusBanner />
       <ScrollToTop />
+      <PwaInstallPrompt />
       <Routes>
         {/* Public Patient & Staff Journey (NO LOGIN REQUIRED FOR PATIENT BOOKING) */}
         <Route element={<PublicLayout />}>

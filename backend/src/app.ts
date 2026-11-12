@@ -29,7 +29,9 @@ app.use(
         requestOrigin === ENV.CLIENT_URL ||
         requestOrigin.endsWith('.onrender.com') ||
         requestOrigin.includes('localhost') ||
-        requestOrigin.includes('127.0.0.1')
+        requestOrigin.includes('127.0.0.1') ||
+        requestOrigin.startsWith('capacitor://') ||
+        requestOrigin.startsWith('ionic://')
       ) {
         return callback(null, true);
       }

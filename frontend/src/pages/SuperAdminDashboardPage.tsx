@@ -39,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { SuperAdminAdvertisementManagement } from '../components/superAdmin/SuperAdminAdvertisementManagement';
+import { saveOrOpenBlob } from '../utils/fileDownload';
 
 export const SuperAdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -246,14 +247,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
         bookingType: analyticsBookingType || undefined,
       });
 
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `MedPulse_OP_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(blob, `MedPulse_OP_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success('Export Successful', 'OP Booking Analytics report exported to Excel (.xlsx)');
     } catch (err: any) {
       toast.error('Export Error', err.message || 'Could not export Excel file');
@@ -514,14 +508,7 @@ export const SuperAdminDashboardPage: React.FC = () => {
         endDate: feeFilterEndDate || undefined,
         hospitalId: feeFilterHospitalId || undefined,
       });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MedPulse_Platform_Fee_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await saveOrOpenBlob(blob, `MedPulse_Platform_Fee_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success('Report Exported', 'Platform fee spreadsheet downloaded');
     } catch (err: any) {
       toast.error('Export Failed', err.message || 'Could not export fee report');

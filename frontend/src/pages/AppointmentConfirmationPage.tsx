@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
+import { Share } from '@capacitor/share';
 import {
   CheckCircle2,
   Download,
@@ -14,9 +15,13 @@ import {
 import { appointmentsApi } from '../api/appointments.api';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { useToast } from '../components/ui/Toast';
+import { getPublicWebUrl, isNativeApp, openExternalUrl } from '../utils/platform';
 
 export const AppointmentConfirmationPage: React.FC = () => {
   const { appointmentId } = useParams<{ appointmentId: string }>();
+  const toast = useToast();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: appointment, isLoading } = useQuery({
     queryKey: ['appointment', appointmentId],
@@ -57,8 +62,38 @@ export const AppointmentConfirmationPage: React.FC = () => {
 
   const opNumber = appointment.digitalOp?.opNumber || 'OP-PROCESSING';
   const secureToken = appointment.digitalOp?.secureToken || '';
-  const verificationUrl = `${window.location.origin}/verify-op/${secureToken}`;
-  const pdfDownloadUrl = appointmentsApi.getPdfUrl(appointment.id);
+  const verificationUrl = `${getPublicWebUrl()}/verify-op/${secureToken}`;
+  const shareText = `🏥 My Doctor Appointment OP Slip:\n• Hospital: ${appointment.hospital?.name}\n• Doctor: ${appointment.doctor?.name}\n• Date: ${appointment.appointmentDate} at ${appointment.timeSlot}\n• Queue Token: #${appointment.tokenNumber}\n• OP Number: ${opNumber}\n• Verify QR: ${verificationUrl}`;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await appointmentsApi.downloadPdf(appointment.id, `Digital_OP_${opNumber}.pdf`);
+      toast.success('Digital OP Ready', 'Digital OP Slip PDF saved.');
+    } catch (err: any) {
+      toast.error('Download Failed', err.message || 'Could not download Digital OP PDF');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleShareOp = async () => {
+    if (isNativeApp()) {
+      try {
+        await Share.share({
+          title: `Digital OP Slip - ${opNumber}`,
+          text: shareText,
+          url: verificationUrl,
+          dialogTitle: 'Share OP Slip',
+        });
+        return;
+      } catch (err: any) {
+        const msg = String(err?.message || '').toLowerCase();
+        if (msg.includes('cancel') || msg.includes('dismiss')) return;
+      }
+    }
+    await openExternalUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`);
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -79,23 +114,22 @@ export const AppointmentConfirmationPage: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 pt-3 max-w-md mx-auto sm:max-w-none">
-          <a href={pdfDownloadUrl} download={`Digital_OP_${opNumber}.pdf`} className="w-full sm:w-auto">
-            <Button size="md" className="w-full bg-[#FF1D6B] hover:bg-[#e1145a] !text-white text-white font-extrabold shadow-md py-3">
-              <Download className="w-4 h-4 mr-2 text-white" /> Download Digital OP (PDF)
-            </Button>
-          </a>
-          <a
-            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-              `🏥 My Doctor Appointment OP Slip:\n• Hospital: ${appointment.hospital?.name}\n• Doctor: ${appointment.doctor?.name}\n• Date: ${appointment.appointmentDate} at ${appointment.timeSlot}\n• Queue Token: #${appointment.tokenNumber}\n• OP Number: ${opNumber}\n• Verify QR: ${verificationUrl}`
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto"
+          <Button
+            size="md"
+            onClick={handleDownloadPdf}
+            isLoading={isDownloadingPdf}
+            className="w-full sm:w-auto bg-[#FF1D6B] hover:bg-[#e1145a] !text-white text-white font-extrabold shadow-md py-3"
           >
-            <Button variant="outline" size="md" className="w-full font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 py-3">
-              <Share2 className="w-4 h-4 mr-2 text-emerald-600" /> Share via WhatsApp
-            </Button>
-          </a>
+            <Download className="w-4 h-4 mr-2 text-white" /> Download Digital OP (PDF)
+          </Button>
+          <Button
+            variant="outline"
+            size="md"
+            onClick={handleShareOp}
+            className="w-full sm:w-auto font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 py-3"
+          >
+            <Share2 className="w-4 h-4 mr-2 text-emerald-600" /> {isNativeApp() ? 'Share OP Slip' : 'Share via WhatsApp'}
+          </Button>
           <Button variant="outline" size="md" onClick={handlePrint} className="hidden sm:inline-flex font-bold">
             <Printer className="w-4 h-4 mr-2" /> Print OP Slip
           </Button>

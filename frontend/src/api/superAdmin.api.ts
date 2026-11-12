@@ -1,4 +1,4 @@
-import { api, API_BASE_URL } from './client';
+import { api, getApiBaseUrl } from './client';
 import {
   HospitalPlatformFee,
   HospitalPlatformFeeConfigItem,
@@ -94,7 +94,7 @@ export const superAdminApi = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_BASE_URL}/super-admin/export/excel${qs ? `?${qs}` : ''}`, {
+    const res = await fetch(`${getApiBaseUrl()}/super-admin/export/excel${qs ? `?${qs}` : ''}`, {
       headers,
     });
     if (!res.ok) {
@@ -121,7 +121,7 @@ export const superAdminApi = {
     if (filters.status) query.append('status', filters.status);
     if (filters.bookingType) query.append('bookingType', filters.bookingType);
     const qs = query.toString();
-    return `${API_BASE_URL}/super-admin/export/excel${qs ? `?${qs}` : ''}`;
+    return `${getApiBaseUrl()}/super-admin/export/excel${qs ? `?${qs}` : ''}`;
   },
 
   // Platform Fee Management & Revenue
@@ -159,7 +159,7 @@ export const superAdminApi = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_BASE_URL}/super-admin/platform-fees/export/excel${qs ? `?${qs}` : ''}`, {
+    const res = await fetch(`${getApiBaseUrl()}/super-admin/platform-fees/export/excel${qs ? `?${qs}` : ''}`, {
       headers,
     });
     if (!res.ok) {

@@ -58,12 +58,18 @@
     scrollbar-width: none;
   }
 
-  /* Safe area padding for iPhone home indicator and bottom nav */
+  /* Safe area padding for iPhone home indicator, Android edge-to-edge system bars, and bottom nav */
   .safe-area-bottom {
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-bottom: max(0.75rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
   .safe-area-top {
-    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-top: max(0.5rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  }
+  .safe-top-inset {
+    padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  }
+  .safe-bottom-inset {
+    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   }
 }
 

@@ -33,6 +33,7 @@ export const AppointmentLookupPage: React.FC = () => {
   const [demoOtpNotice, setDemoOtpNotice] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retrievedAppointment, setRetrievedAppointment] = useState<Appointment | null>(null);
 
@@ -311,15 +312,27 @@ export const AppointmentLookupPage: React.FC = () => {
 
               {/* Actions */}
               <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                <a
-                  href={appointmentsApi.getPdfUrl(retrievedAppointment.id)}
-                  download={`Digital_OP_${retrievedAppointment.digitalOp?.opNumber}.pdf`}
-                  className="flex-1"
+                <Button
+                  size="md"
+                  className="flex-1 bg-royal-600 hover:bg-royal-700 font-bold"
+                  isLoading={isDownloadingPdf}
+                  onClick={async () => {
+                    setIsDownloadingPdf(true);
+                    try {
+                      await appointmentsApi.downloadPdf(
+                        retrievedAppointment.id,
+                        `Digital_OP_${retrievedAppointment.digitalOp?.opNumber || retrievedAppointment.id}.pdf`
+                      );
+                      toast.success('Digital OP Ready', 'Digital OP Slip PDF saved.');
+                    } catch (err: any) {
+                      toast.error('Download Failed', err.message || 'Could not download Digital OP PDF');
+                    } finally {
+                      setIsDownloadingPdf(false);
+                    }
+                  }}
                 >
-                  <Button size="md" className="w-full bg-royal-600 hover:bg-royal-700 font-bold">
-                    <Download className="w-4 h-4 mr-2" /> Download Digital OP (PDF)
-                  </Button>
-                </a>
+                  <Download className="w-4 h-4 mr-2" /> Download Digital OP (PDF)
+                </Button>
                 <Link to={`/appointments/${retrievedAppointment.id}/confirmed`}>
                   <Button variant="outline" size="md">
                     View Full Slip & Queue

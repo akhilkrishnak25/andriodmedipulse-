@@ -434,7 +434,7 @@ export const LabTechnicianDashboardPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top Bar */}
-      <header className="bg-slate-900 text-white px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-slate-800">
+      <header className="bg-slate-900 text-white px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-slate-800 safe-top-inset">
         <div className="flex items-center gap-3">
           <RocketWheelLogo size="sm" />
           <div className="border-l border-slate-700 pl-3">

@@ -68,6 +68,8 @@ import { Badge } from '../components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { saveOrOpenBlob } from '../utils/fileDownload';
+import { getPublicWebUrl } from '../utils/platform';
 import { InlineSpinner } from '../components/ui/Loading';
 import { Appointment, Doctor } from '../types';
 import { formatBP, formatSystolicDiastolicBP } from '../utils/vitals';
@@ -407,15 +409,11 @@ export const HospitalAdminDashboardPage: React.FC = () => {
     setIsExportingExcel(true);
     try {
       const blob = await adminApi.exportAllDataExcel();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeHospName = (hospitalProfile?.name || user?.hospital?.name || 'Hospital').replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = `MedPulse_${safeHospName}_AllData_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(
+        blob,
+        `MedPulse_${safeHospName}_AllData_${new Date().toISOString().split('T')[0]}.xlsx`
+      );
       toast.success('Excel Export Successful', 'All hospital records (Appointments, Doctors, Departments, Staff, Patients) exported to Excel (.xlsx)');
     } catch (err: any) {
       toast.error('Excel Export Failed', err.message || 'Could not export Excel file');
@@ -433,16 +431,9 @@ export const HospitalAdminDashboardPage: React.FC = () => {
         date: effectiveDate,
         search: searchQuery || undefined,
       });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeHospName = (hospitalProfile?.name || user?.hospital?.name || 'Hospital').replace(/[^a-zA-Z0-9]/g, '_');
       const todayStr = new Date().toISOString().split('T')[0];
-      a.download = `MedPulse_${safeHospName}_Appointments_${todayStr}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(blob, `MedPulse_${safeHospName}_Appointments_${todayStr}.xlsx`);
       toast.success(
         'Appointments Export Successful',
         'Hospital appointments list exported to Excel (.xlsx)'
@@ -463,16 +454,9 @@ export const HospitalAdminDashboardPage: React.FC = () => {
         date: effectiveDate,
         search: searchQuery || undefined,
       });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeHospName = (hospitalProfile?.name || user?.hospital?.name || 'Hospital').replace(/[^a-zA-Z0-9]/g, '_');
       const todayStr = new Date().toISOString().split('T')[0];
-      a.download = `MedPulse_${safeHospName}_Completed_Appointments_${todayStr}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(blob, `MedPulse_${safeHospName}_Completed_Appointments_${todayStr}.xlsx`);
       toast.success(
         'Completed Appointments Exported',
         'Completed OPD consultations list exported to Excel (.xlsx)'
@@ -490,16 +474,9 @@ export const HospitalAdminDashboardPage: React.FC = () => {
       const blob = await adminApi.exportPatientsExcel({
         search: patientSearch || undefined,
       });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeHospName = (hospitalProfile?.name || user?.hospital?.name || 'Hospital').replace(/[^a-zA-Z0-9]/g, '_');
       const todayStr = new Date().toISOString().split('T')[0];
-      a.download = `MedPulse_${safeHospName}_Patients_${todayStr}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(blob, `MedPulse_${safeHospName}_Patients_${todayStr}.xlsx`);
       toast.success(
         'Patients Export Successful',
         'Hospital patient directory records exported to Excel (.xlsx)'
@@ -4717,7 +4694,7 @@ export const HospitalAdminDashboardPage: React.FC = () => {
                 variant="outline"
                 className="bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 font-semibold"
                 onClick={() => {
-                  const credText = `RocketWheel MedPulse Doctor Login\nDoctor: ${createdDoctorCredentials.name}\nEmail: ${createdDoctorCredentials.email}\nTemporary Password: ${createdDoctorCredentials.password || 'N/A'}\nStaff Login Portal: ${window.location.origin}/staff/login`;
+                  const credText = `RocketWheel MedPulse Doctor Login\nDoctor: ${createdDoctorCredentials.name}\nEmail: ${createdDoctorCredentials.email}\nTemporary Password: ${createdDoctorCredentials.password || 'N/A'}\nStaff Login Portal: ${getPublicWebUrl()}/staff/login`;
                   navigator.clipboard.writeText(credText);
                   toast.success('All Credentials Copied', 'Complete login instructions copied to clipboard.');
                 }}

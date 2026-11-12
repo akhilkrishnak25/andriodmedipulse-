@@ -63,6 +63,7 @@ import {
   calculateBMI,
 } from '../utils/vitals';
 import { sortMedicinesByPriority } from '../utils/medicines';
+import { saveOrOpenBlob } from '../utils/fileDownload';
 
 interface MedicineItem {
   _id?: string;
@@ -1401,14 +1402,8 @@ export const DoctorDashboardPage: React.FC = () => {
       setIsDownloadingPdf(true);
       toast.info('Generating PDF', 'Compiling official clinical consultation document...');
       const blob = await doctorDashboardApi.downloadConsultationPdf(appointmentId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Consultation-${(patientName || 'Patient').replace(/\s+/g, '_')}-${appointmentId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const filename = `Consultation-${(patientName || 'Patient').replace(/\s+/g, '_')}-${appointmentId.slice(0, 8)}.pdf`;
+      await saveOrOpenBlob(blob, filename, { shareTitle: 'Clinical Consultation PDF' });
       toast.success('Downloaded', 'Clinical consultation document downloaded successfully.');
     } catch (err: any) {
       toast.error('Download Failed', err.message || 'Could not download consultation document');
@@ -1423,17 +1418,10 @@ export const DoctorDashboardPage: React.FC = () => {
       setIsDownloadingPdf(true);
       toast.info('Preparing Print Document', 'Generating consultation document with 2-inch hospital letterhead space...');
       const blob = await doctorDashboardApi.downloadConsultationPdf(appointmentId);
-      const url = window.URL.createObjectURL(blob);
-      const printWindow = window.open(url, '_blank');
-      if (!printWindow) {
-        // Fall back to opening direct link
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      await saveOrOpenBlob(blob, `Consultation-${appointmentId.slice(0, 8)}.pdf`, {
+        openInNewTab: true,
+        shareTitle: 'Print Clinical Consultation',
+      });
       toast.success('Print Document Ready', 'Consultation document opened. Ready to print on hospital letterhead.');
     } catch (err: any) {
       toast.error('Print Failed', err.message || 'Could not prepare print document');
@@ -1677,15 +1665,11 @@ export const DoctorDashboardPage: React.FC = () => {
     setIsExportingExcel(true);
     try {
       const blob = await doctorDashboardApi.exportAllDataExcel();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeDoctorName = (profile?.user?.name || user?.name || 'Doctor').replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = `MedPulse_Doctor_${safeDoctorName}_AllData_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(
+        blob,
+        `MedPulse_Doctor_${safeDoctorName}_AllData_${new Date().toISOString().split('T')[0]}.xlsx`
+      );
       toast.success('Excel Export Successful', 'All doctor records (OP Queue, Templates, Labs, Schedules, Leaves) exported to Excel (.xlsx)');
     } catch (err: any) {
       toast.error('Excel Export Failed', err.message || 'Could not export Excel file');
@@ -1698,15 +1682,11 @@ export const DoctorDashboardPage: React.FC = () => {
     setIsExportingCompletedExcel(true);
     try {
       const blob = await doctorDashboardApi.exportAllDataExcel({ status: 'COMPLETED' });
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
       const safeDoctorName = (profile?.user?.name || user?.name || 'Doctor').replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = `MedPulse_Doctor_${safeDoctorName}_Completed_Consultations_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      await saveOrOpenBlob(
+        blob,
+        `MedPulse_Doctor_${safeDoctorName}_Completed_Consultations_${new Date().toISOString().split('T')[0]}.xlsx`
+      );
       toast.success('Completed Consultations Exported', 'Completed OPD consultations exported to Excel (.xlsx)');
     } catch (err: any) {
       toast.error('Export Failed', err.message || 'Could not export completed consultations');
@@ -5380,12 +5360,7 @@ export const DoctorDashboardPage: React.FC = () => {
                     '"Acute Gastroenteritis","Acute Diarrhea","Ofloxacin-Ornidazole:1 Tab:1-0-1:5 days;ORS Sachet:1 Sachet:As needed:3 days","Hydration with ORS"\n' +
                     '"Hypertension","Primary Hypertension","Telmisartan 40mg:1 Tab:1-0-0:30 days;Amlodipine 5mg:1 Tab:0-0-1:30 days","Low salt diet, weekly BP log"';
                   const blob = new Blob([sampleCsv], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'sample_prescription_templates.csv';
-                  a.click();
-                  URL.revokeObjectURL(url);
+                  void saveOrOpenBlob(blob, 'sample_prescription_templates.csv');
                 }}
                 className="text-xs font-bold text-royal-700 border-royal-300 hover:bg-royal-100"
               >
