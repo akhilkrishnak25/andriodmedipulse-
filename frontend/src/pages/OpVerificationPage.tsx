@@ -88,8 +88,14 @@ export const OpVerificationPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <span className="text-xs text-slate-500">Time Slot:</span>
-            <span className="font-semibold text-slate-900">{verification.timeSlot}</span>
+            <span className="text-xs text-slate-500">
+              {verification.timeSlot && verification.timeSlot !== 'OPD Consultation' ? 'Time Slot:' : 'Consultation:'}
+            </span>
+            <span className="font-semibold text-slate-900">
+              {verification.timeSlot && verification.timeSlot !== 'OPD Consultation'
+                ? verification.timeSlot
+                : 'OPD Consultation'}
+            </span>
           </div>
 
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">

@@ -63,7 +63,11 @@ export const AppointmentConfirmationPage: React.FC = () => {
   const opNumber = appointment.digitalOp?.opNumber || 'OP-PROCESSING';
   const secureToken = appointment.digitalOp?.secureToken || '';
   const verificationUrl = `${getPublicWebUrl()}/verify-op/${secureToken}`;
-  const shareText = `🏥 My Doctor Appointment OP Slip:\n• Hospital: ${appointment.hospital?.name}\n• Doctor: ${appointment.doctor?.name}\n• Date: ${appointment.appointmentDate} at ${appointment.timeSlot}\n• Queue Token: #${appointment.tokenNumber}\n• OP Number: ${opNumber}\n• Verify QR: ${verificationUrl}`;
+  const timingText =
+    appointment.timeSlot && appointment.timeSlot !== 'OPD Consultation'
+      ? ` at ${appointment.timeSlot}`
+      : ` (OPD Consultation)`;
+  const shareText = `🏥 My Doctor Appointment OP Slip:\n• Hospital: ${appointment.hospital?.name}\n• Doctor: ${appointment.doctor?.name}\n• Date: ${appointment.appointmentDate}${timingText}\n• Queue Token: #${appointment.tokenNumber}\n• OP Number: ${opNumber}\n• Verify QR: ${verificationUrl}`;
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
@@ -220,8 +224,14 @@ export const AppointmentConfirmationPage: React.FC = () => {
             <span className="font-bold text-slate-900">{appointment.appointmentDate}</span>
           </div>
           <div>
-            <span className="text-slate-500 font-medium block">Time Slot:</span>
-            <span className="font-bold text-slate-900">{appointment.timeSlot}</span>
+            <span className="text-slate-500 font-medium block">
+              {appointment.timeSlot && appointment.timeSlot !== 'OPD Consultation' ? 'Time Slot:' : 'Consultation:'}
+            </span>
+            <span className="font-bold text-slate-900">
+              {appointment.timeSlot && appointment.timeSlot !== 'OPD Consultation'
+                ? appointment.timeSlot
+                : 'OPD Consultation'}
+            </span>
           </div>
         </div>
 

@@ -1787,7 +1787,11 @@ export const HospitalAdminDashboardPage: React.FC = () => {
                       </td>
                       <td className="px-5 py-4">
                         <div className="font-medium text-slate-900">{apt.appointmentDate}</div>
-                        <div className="text-[11px] text-slate-500">{apt.timeSlot}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {apt.timeSlot && apt.timeSlot !== 'OPD Consultation'
+                            ? apt.timeSlot
+                            : `OPD Queue (Token #${apt.tokenNumber})`}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         {apt.digitalOp ? (

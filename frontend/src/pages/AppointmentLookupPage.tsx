@@ -291,9 +291,13 @@ export const AppointmentLookupPage: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Time Slot:</span>
+                  <span className="text-slate-500 block">
+                    {retrievedAppointment.timeSlot && retrievedAppointment.timeSlot !== 'OPD Consultation' ? 'Time Slot:' : 'Consultation:'}
+                  </span>
                   <span className="font-semibold text-slate-900">
-                    {retrievedAppointment.timeSlot}
+                    {retrievedAppointment.timeSlot && retrievedAppointment.timeSlot !== 'OPD Consultation'
+                      ? retrievedAppointment.timeSlot
+                      : 'OPD Consultation'}
                   </span>
                 </div>
                 <div>

@@ -2107,7 +2107,11 @@ export const DoctorDashboardPage: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-4 font-semibold text-slate-800">{apt.timeSlot}</td>
+                    <td className="px-5 py-4 font-semibold text-slate-800">
+                      {apt.timeSlot && apt.timeSlot !== 'OPD Consultation'
+                        ? apt.timeSlot
+                        : `OPD (Token #${apt.tokenNumber})`}
+                    </td>
                     <td className="px-5 py-4 font-mono font-bold text-royal-800">
                       {apt.digitalOp?.opNumber || 'N/A'}
                     </td>

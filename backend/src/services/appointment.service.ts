@@ -12,7 +12,7 @@ export interface CreateAppointmentDTO {
   doctorId: string;
   departmentId: string;
   appointmentDate: string; // YYYY-MM-DD
-  timeSlot: string;
+  timeSlot?: string | null;
   patient: {
     fullName: string;
     mobileNumber: string;
@@ -33,45 +33,85 @@ export class AppointmentService {
    */
   static async createPendingAppointment(dto: CreateAppointmentDTO) {
     const { hospitalId, doctorId, departmentId, appointmentDate, timeSlot, patient: patientData, notes } = dto;
+    const resolvedTimeSlot =
+      timeSlot && timeSlot.trim().length > 0 ? timeSlot.trim() : 'OPD Consultation';
 
     // Validate Doctor and Hospital association
     const doctor = await prisma.doctor.findFirst({
       where: { id: doctorId, hospitalId, isActive: true },
-      include: { hospital: true, department: true },
+      include: { hospital: true, department: true, leaves: true, schedules: true },
     });
 
     if (!doctor) {
       throw new Error('Doctor not found at the selected hospital or is currently inactive.');
     }
 
-    // Double-booking check: verify if slot is already occupied
-    const existing = await prisma.appointment.findFirst({
-      where: {
-        doctorId,
-        appointmentDate,
-        timeSlot,
-        status: { in: ['CONFIRMED', 'WAITING', 'IN_CONSULTATION', 'COMPLETED'] },
-      },
+    // Verify doctor availability on the selected appointment date (Leaves & Working Days)
+    const targetDate = new Date(`${appointmentDate}T00:00:00.000Z`);
+    const dayOfWeek = targetDate.getUTCDay();
+
+    // Check if doctor is on approved leave for this date
+    const isOnLeave = doctor.leaves?.some((l) => {
+      const start = new Date(l.startDate);
+      const end = new Date(l.endDate);
+      return targetDate >= start && targetDate <= end;
     });
 
-    if (existing) {
-      throw new Error('Selected time slot has just been booked by another patient. Please choose a different slot.');
+    if (isOnLeave) {
+      throw new Error('Doctor is on leave on the selected date. Please choose another date.');
     }
 
-    // Check if another pending booking is active within the last 10 minutes
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const existingPending = await prisma.appointment.findFirst({
-      where: {
-        doctorId,
-        appointmentDate,
-        timeSlot,
-        status: 'PENDING_PAYMENT',
-        createdAt: { gte: tenMinutesAgo },
-      },
-    });
+    // Check doctor schedule and working days
+    const specificSchedule = doctor.schedules?.find((s) => s.dayOfWeek === dayOfWeek);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const currentDayName = dayNames[dayOfWeek];
+    const workingDaysList = (doctor.workingDays || '').split(',').map((s) => s.trim()).filter(Boolean);
 
-    if (existingPending) {
-      throw new Error('This time slot is temporarily reserved by another patient completing payment. Please try another slot.');
+    const isAvailableToday =
+      (specificSchedule ? specificSchedule.isAvailable : false) ||
+      (workingDaysList.length > 0 ? workingDaysList.includes(currentDayName) : true);
+
+    if (!isAvailableToday) {
+      throw new Error(`Doctor does not consult on ${currentDayName}days. Please select another date.`);
+    }
+
+    // Check double-booking only if a specific discrete time slot is provided (e.g. legacy/offline slots)
+    // For OPD queue bookings ('OPD Consultation'), consultations are queue-based with sequential token allocation
+    const isSpecificSlot =
+      resolvedTimeSlot !== 'OPD Consultation' &&
+      resolvedTimeSlot !== 'Walk-in / Immediate' &&
+      !resolvedTimeSlot.toLowerCase().startsWith('opd');
+
+    if (isSpecificSlot) {
+      // Double-booking check: verify if slot is already occupied
+      const existing = await prisma.appointment.findFirst({
+        where: {
+          doctorId,
+          appointmentDate,
+          timeSlot: resolvedTimeSlot,
+          status: { in: ['CONFIRMED', 'WAITING', 'IN_CONSULTATION', 'COMPLETED'] },
+        },
+      });
+
+      if (existing) {
+        throw new Error('Selected time slot has just been booked by another patient. Please choose a different slot.');
+      }
+
+      // Check if another pending booking is active within the last 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const existingPending = await prisma.appointment.findFirst({
+        where: {
+          doctorId,
+          appointmentDate,
+          timeSlot: resolvedTimeSlot,
+          status: 'PENDING_PAYMENT',
+          createdAt: { gte: tenMinutesAgo },
+        },
+      });
+
+      if (existingPending) {
+        throw new Error('This time slot is temporarily reserved by another patient completing payment. Please try another slot.');
+      }
     }
 
     // Compute age if DOB given and age missing
@@ -169,7 +209,7 @@ export class AppointmentService {
         patientId: patient.id,
         departmentId,
         appointmentDate,
-        timeSlot,
+        timeSlot: resolvedTimeSlot,
         tokenNumber,
         status: 'PENDING_PAYMENT',
         bookingType: 'ONLINE',
@@ -343,7 +383,7 @@ export class AppointmentService {
       });
 
       return { confirmedApt, payment, digitalOp };
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 
     // 4. Send system notification to Hospital Admin
     await NotificationService.notifyHospitalAdminOfBooking({

@@ -250,10 +250,10 @@ export const DoctorProfilePage: React.FC = () => {
           <Card className="rounded-2xl p-6 bg-gradient-to-br from-royal-50 via-white to-pink-50/20 border-royal-200/60 space-y-4">
             <div className="flex items-center gap-2 text-royal-900 font-bold text-sm">
               <ShieldCheck className="w-5 h-5 text-royal-600" />
-              Guaranteed Outpatient Slot
+              Guaranteed Outpatient (OP) Consultation
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Booking online reserves your time slot directly in the hospital OPD queue with an official downloadable Digital OP slip.
+              Booking online reserves your consultation directly in the hospital OPD queue with an official downloadable Digital OP slip.
             </p>
             <Link to={`/book/${doctor.id}`} className="block text-white">
               <Button size="md" className="w-full bg-royal-600 hover:bg-royal-700 !text-white text-white font-extrabold py-3 shadow-md">
@@ -272,7 +272,7 @@ export const DoctorProfilePage: React.FC = () => {
             <div className="text-[10px] uppercase font-bold text-slate-400">Consultation Fee</div>
             <div className="text-xl font-black text-slate-900 leading-tight">₹{doctor.consultationFee}</div>
             <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Slots Available
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Available for Booking
             </div>
           </div>
           <Link to={`/book/${doctor.id}`} className="flex-1 max-w-[210px]">

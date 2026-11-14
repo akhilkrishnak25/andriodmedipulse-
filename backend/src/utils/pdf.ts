@@ -118,13 +118,13 @@ export const generateDigitalOpPdf = async (data: DigitalOpPdfData): Promise<Buff
          .text('OP NUMBER', 55, 158)
          .text('APPOINTMENT ID', 185, 158)
          .text('DATE', 315, 158)
-         .text('TIME SLOT', 440, 158);
+         .text(data.timeSlot && data.timeSlot !== 'OPD Consultation' ? 'TIME SLOT' : 'SCHEDULE', 440, 158);
 
       doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold')
          .text(data.opNumber, 55, 172)
          .text(data.appointmentNumber, 185, 172)
          .text(data.appointmentDate, 315, 172)
-         .text(data.timeSlot, 440, 172);
+         .text(data.timeSlot || 'OPD Consultation', 440, 172);
 
       // --- 2 COLUMNS: PATIENT DETAILS & DOCTOR DETAILS ---
       const colTop = 210;

@@ -54,9 +54,8 @@ export const BookingPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -108,7 +107,6 @@ export const BookingPage: React.FC = () => {
 
   const handleDateSelect = (dateStr: string) => {
     setSelectedDate(dateStr);
-    setSelectedSlot('');
   };
 
   const {
@@ -126,11 +124,11 @@ export const BookingPage: React.FC = () => {
   });
 
   const onPatientFormSubmit = () => {
-    setStep(4);
+    setStep(3);
   };
 
   const handlePaymentInitiate = async () => {
-    if (!doctor || !selectedDate || !selectedSlot) return;
+    if (!doctor || !selectedDate) return;
 
     setIsProcessingPayment(true);
     setPaymentError(null);
@@ -143,7 +141,7 @@ export const BookingPage: React.FC = () => {
         doctorId: doctor.id,
         departmentId: doctor.departmentId,
         appointmentDate: selectedDate,
-        timeSlot: selectedSlot,
+        timeSlot: 'OPD Consultation',
         patient: {
           fullName: formData.fullName,
           mobileNumber: formData.mobileNumber,
@@ -312,10 +310,9 @@ export const BookingPage: React.FC = () => {
         <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 -z-0 -translate-y-1/2"></div>
         {[
           { num: 1, label: 'Date' },
-          { num: 2, label: 'Time Slot' },
-          { num: 3, label: 'Patient Info' },
-          { num: 4, label: 'Summary' },
-          { num: 5, label: 'Payment' },
+          { num: 2, label: 'Patient Info' },
+          { num: 3, label: 'Summary' },
+          { num: 4, label: 'Payment' },
         ].map((s) => {
           const isDone = step > s.num;
           const isCurrent = step === s.num;
@@ -390,138 +387,66 @@ export const BookingPage: React.FC = () => {
             })}
           </div>
 
+          {/* DOCTOR AVAILABILITY & OPD CONSULTATION STATUS */}
+          {slotsLoading ? (
+            <div className="py-4 text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-royal-600 mx-auto"></div>
+              <p className="text-xs text-slate-500 mt-2">Checking doctor's consultation availability...</p>
+            </div>
+          ) : !availability?.isWorkingDay ? (
+            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <strong className="block font-bold">Doctor Unavailable on this Date</strong>
+                <span>{availability?.reason || 'The doctor does not have consultation hours on the selected date. Please choose another date.'}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
+                <span>
+                  <strong>Consultation Available</strong> on {selectedDate} • OPD Hours: <strong>{doctor.workingHoursStart || '09:00'} - {doctor.workingHoursEnd || '17:00'}</strong>
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-800 bg-white/80 px-2.5 py-0.5 rounded-full border border-emerald-300 w-fit">
+                Automatic OPD Queue Token
+              </span>
+            </div>
+          )}
+
           <div className="flex justify-end pt-4 border-t border-slate-100">
             <Button
               size="md"
-              disabled={!selectedDate}
+              disabled={!selectedDate || slotsLoading || availability?.isWorkingDay === false}
               onClick={() => setStep(2)}
               className="bg-royal-600 hover:bg-royal-700 !text-white text-white font-bold gap-2 shadow-sm"
             >
-              <span className="text-white font-bold">Continue to Slots</span> <ArrowRight className="w-4 h-4 text-white" />
+              <span className="text-white font-bold">Continue to Patient Details</span> <ArrowRight className="w-4 h-4 text-white" />
             </Button>
           </div>
         </Card>
       )}
 
-      {/* STEP 2: SELECT TIME SLOT */}
+      {/* STEP 2: GUEST PATIENT DETAILS FORM */}
       {step === 2 && (
         <Card className="rounded-2xl p-6 space-y-6 border-slate-200">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-royal-600" />
-                Step 2: Choose Consultation Time Slot
+                <UserIcon className="w-5 h-5 text-royal-600" />
+                Step 2: Patient Information (No Login Required)
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Date selected: <strong className="text-slate-900">{selectedDate}</strong>
+                Consultation Date: <strong className="text-slate-900">{selectedDate}</strong> (Outpatient OPD Queue)
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setStep(1)}
               className="text-xs text-royal-600 font-bold hover:underline"
             >
               Change Date
-            </button>
-          </div>
-
-          {slotsLoading ? (
-            <div className="py-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-royal-600 mx-auto"></div>
-              <p className="text-xs text-slate-500 mt-2">Checking doctor's live schedule & appointments...</p>
-            </div>
-          ) : !availability?.isWorkingDay ? (
-            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-              <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-              <h3 className="font-bold text-slate-900 text-sm">Doctor Unavailable on this Date</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                {availability?.reason || 'The doctor does not have consultation hours on the selected date.'}
-              </p>
-              <Button variant="outline" size="sm" onClick={() => setStep(1)}>
-                Select Another Date
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs text-slate-500 pb-1">
-                <span>
-                  {availability.availableCount} of {availability.totalSlots} slots available
-                </span>
-                <span className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5 font-semibold text-royal-600">
-                    <span className="w-3 h-3 rounded-full bg-royal-600"></span> Available
-                  </span>
-                  <span className="flex items-center gap-1.5 font-semibold text-slate-400">
-                    <span className="w-3 h-3 rounded-full bg-slate-200"></span> Booked / Break
-                  </span>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {availability.slots.map((slot) => {
-                  const isSelected = selectedSlot === slot.time;
-                  return (
-                    <button
-                      key={slot.time}
-                      type="button"
-                      disabled={!slot.isAvailable}
-                      onClick={() => setSelectedSlot(slot.time)}
-                      className={`p-3 rounded-xl text-center text-xs font-bold transition-all border ${
-                        isSelected
-                          ? 'bg-royal-600 text-white border-royal-600 shadow-md ring-2 ring-royal-200'
-                          : slot.isAvailable
-                          ? 'bg-white text-slate-800 border-slate-200 hover:border-royal-500 hover:bg-royal-50/50'
-                          : 'bg-slate-100 text-slate-400 border-slate-100 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <div>{slot.time}</div>
-                      <div className="text-[10px] font-normal mt-0.5">
-                        {slot.status === 'BOOKED'
-                          ? 'Booked'
-                          : slot.status === 'BREAK'
-                          ? 'Break Time'
-                          : 'Available'}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-            <Button variant="outline" size="md" onClick={() => setStep(1)}>
-              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Dates
-            </Button>
-            <Button
-              size="md"
-              disabled={!selectedSlot}
-              onClick={() => setStep(3)}
-              className="bg-royal-600 hover:bg-royal-700 !text-white text-white font-bold gap-2 shadow-sm"
-            >
-              <span className="text-white font-bold">Enter Patient Details</span> <ArrowRight className="w-4 h-4 text-white" />
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* STEP 3: GUEST PATIENT DETAILS FORM */}
-      {step === 3 && (
-        <Card className="rounded-2xl p-6 space-y-6 border-slate-200">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <UserIcon className="w-5 h-5 text-royal-600" />
-                Step 3: Patient Information (No Login Required)
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Slots reserved for: <strong className="text-slate-900">{selectedDate} at {selectedSlot}</strong>
-              </p>
-            </div>
-            <button
-              onClick={() => setStep(2)}
-              className="text-xs text-royal-600 font-bold hover:underline"
-            >
-              Change Slot
             </button>
           </div>
 
@@ -699,8 +624,8 @@ export const BookingPage: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <Button type="button" variant="outline" size="md" onClick={() => setStep(2)}>
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Slots
+              <Button type="button" variant="outline" size="md" onClick={() => setStep(1)}>
+                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Date Selection
               </Button>
               <Button type="submit" size="md" className="bg-royal-600 hover:bg-royal-700 !text-white text-white font-bold gap-2 shadow-sm">
                 <span className="text-white font-bold">Review Appointment</span> <ArrowRight className="w-4 h-4 text-white" />
@@ -710,21 +635,22 @@ export const BookingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* STEP 4: REVIEW SUMMARY */}
-      {step === 4 && (
+      {/* STEP 3: REVIEW SUMMARY */}
+      {step === 3 && (
         <Card className="rounded-2xl p-6 space-y-6 border-slate-200">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-royal-600" />
-                Step 4: Review Appointment Summary
+                Step 3: Review Appointment Summary
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Verify booking specifics before proceeding to payment
               </p>
             </div>
             <button
-              onClick={() => setStep(3)}
+              type="button"
+              onClick={() => setStep(2)}
               className="text-xs text-royal-600 font-bold hover:underline"
             >
               Edit Details
@@ -751,12 +677,16 @@ export const BookingPage: React.FC = () => {
                   <span className="font-bold text-royal-600">{doctor.department?.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Date:</span>
+                  <span className="text-slate-500">Consultation Date:</span>
                   <span className="font-bold text-slate-900">{selectedDate}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Time Slot:</span>
-                  <span className="font-bold text-slate-900">{selectedSlot}</span>
+                  <span className="text-slate-500">Consultation Type:</span>
+                  <span className="font-bold text-slate-900">Outpatient (OPD) Consultation</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">OPD Hours:</span>
+                  <span className="font-bold text-slate-900">{doctor.workingHoursStart || '09:00'} - {doctor.workingHoursEnd || '17:00'}</span>
                 </div>
               </div>
             </div>
@@ -823,18 +753,18 @@ export const BookingPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-            <Button variant="outline" size="md" onClick={() => setStep(3)}>
+            <Button variant="outline" size="md" onClick={() => setStep(2)}>
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Edit
             </Button>
-            <Button size="lg" onClick={() => setStep(5)} className="bg-[#FF1D6B] hover:bg-[#e1145a] !text-white text-white font-extrabold gap-2 shadow-md px-6 py-3">
+            <Button size="lg" onClick={() => setStep(4)} className="bg-[#FF1D6B] hover:bg-[#e1145a] !text-white text-white font-extrabold gap-2 shadow-md px-6 py-3">
               <span className="text-white font-black">Confirm & Book Appointment (₹{totalAmount})</span> <ArrowRight className="w-4 h-4 text-white" />
             </Button>
           </div>
         </Card>
       )}
 
-      {/* STEP 5: ONLINE PAYMENT */}
-      {step === 5 && (
+      {/* STEP 4: ONLINE PAYMENT */}
+      {step === 4 && (
         <Card className="rounded-2xl p-6 sm:p-8 space-y-6 border-slate-200">
           <div className="text-center max-w-md mx-auto space-y-2">
             <div className="w-14 h-14 rounded-2xl bg-royal-100 flex items-center justify-center text-royal-600 mx-auto mb-3">
@@ -866,8 +796,8 @@ export const BookingPage: React.FC = () => {
               <span className="font-bold text-slate-900">{doctor.name}</span>
             </div>
             <div className="flex justify-between text-xs text-slate-600">
-              <span>Date & Time:</span>
-              <span className="font-bold text-slate-900">{selectedDate} @ {selectedSlot}</span>
+              <span>Date & Schedule:</span>
+              <span className="font-bold text-slate-900">{selectedDate} • OPD Consultation</span>
             </div>
             <div className="flex justify-between text-xs text-slate-600 border-t border-slate-200/60 pt-2">
               <span>Doctor Consultation Fee:</span>
@@ -900,7 +830,7 @@ export const BookingPage: React.FC = () => {
               variant="ghost"
               size="sm"
               disabled={isProcessingPayment}
-              onClick={() => setStep(4)}
+              onClick={() => setStep(3)}
               className="w-full text-slate-500"
             >
               Return to Summary

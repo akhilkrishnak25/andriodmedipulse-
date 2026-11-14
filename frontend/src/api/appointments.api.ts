@@ -7,7 +7,7 @@ export interface CreateAppointmentDTO {
   doctorId: string;
   departmentId: string;
   appointmentDate: string;
-  timeSlot: string;
+  timeSlot?: string;
   patient: {
     fullName: string;
     mobileNumber: string;

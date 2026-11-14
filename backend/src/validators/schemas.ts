@@ -85,7 +85,12 @@ export const createAppointmentSchema = z.object({
   doctorId: z.string().min(1, 'Invalid doctor ID'),
   departmentId: z.string().min(1, 'Invalid department ID'),
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be formatted as YYYY-MM-DD'),
-  timeSlot: z.string().min(1, 'Time slot is required'),
+  timeSlot: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : 'OPD Consultation'))
+    .default('OPD Consultation'),
   // Guest Patient info (no login required!)
   patient: z.object({
     fullName: z.string().min(2, 'Full Name is required (minimum 2 characters)'),

@@ -26,7 +26,7 @@ export class NotificationService {
       `Doctor: ${params.doctorName}`,
       `Department: ${params.departmentName}`,
       `Date: ${params.appointmentDate}`,
-      `Time: ${params.timeSlot}`,
+      `Time / Schedule: ${params.timeSlot && params.timeSlot !== 'OPD Consultation' ? params.timeSlot : 'OPD Consultation'}`,
       `OP: ${params.opNumber}`,
       `Payment: ₹${params.totalAmount} — SUCCESS`,
     ].join('\n');
@@ -59,7 +59,11 @@ export class NotificationService {
     // Modular email logger / dispatcher
     console.log(`\n📧 [EMAIL DISPATCH] To: ${params.patientEmail}`);
     console.log(`Subject: Confirmed: Your Doctor Appointment at MediPulse - OP ${params.opNumber}`);
-    console.log(`Dear ${params.patientName}, your appointment with ${params.doctorName} on ${params.appointmentDate} at ${params.timeSlot} is confirmed. Digital OP: ${params.opNumber}.\n`);
+    const scheduleStr =
+      params.timeSlot && params.timeSlot !== 'OPD Consultation'
+        ? `at ${params.timeSlot}`
+        : `for OPD Consultation`;
+    console.log(`Dear ${params.patientName}, your appointment with ${params.doctorName} on ${params.appointmentDate} ${scheduleStr} is confirmed. Digital OP: ${params.opNumber}.\n`);
   }
 
   /**

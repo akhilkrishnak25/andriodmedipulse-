@@ -1066,7 +1066,11 @@ export const SuperAdminDashboardPage: React.FC = () => {
                       <td className="px-5 py-4 font-medium text-slate-700">{apt.doctor?.name}</td>
                       <td className="px-5 py-4">
                         <div>{apt.appointmentDate}</div>
-                        <div className="text-[10px] text-slate-400">{apt.timeSlot}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {apt.timeSlot && apt.timeSlot !== 'OPD Consultation'
+                            ? apt.timeSlot
+                            : `OPD (Token #${apt.tokenNumber})`}
+                        </div>
                       </td>
                       <td className="px-5 py-4 font-black text-slate-900">₹{apt.totalAmount}</td>
                       <td className="px-5 py-4">
