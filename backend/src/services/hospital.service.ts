@@ -1,6 +1,32 @@
 import prisma from '../config/prisma';
 import { sanitizeDoctorPhotoUrl } from './doctor.service';
 
+export const parseHospitalFacilities = (facilitiesRaw: any): string[] => {
+  if (!facilitiesRaw) return [];
+  if (Array.isArray(facilitiesRaw)) {
+    return facilitiesRaw.map((f) => String(f).trim()).filter(Boolean);
+  }
+  if (typeof facilitiesRaw === 'string') {
+    const trimmed = facilitiesRaw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((f) => String(f).trim()).filter(Boolean);
+        }
+      } catch {
+        // Fall through to comma-separated splitting
+      }
+    }
+    return trimmed
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 export interface HospitalFilters {
   search?: string;
   city?: string;
@@ -114,7 +140,7 @@ export class HospitalService {
         emergencyContact: h.emergencyContact,
         openingHours: h.openingHours,
         about: h.about,
-        facilities: JSON.parse(h.facilities || '[]'),
+        facilities: parseHospitalFacilities(h.facilities),
         rating: h.rating,
         isEmergencyAvailable: h.isEmergencyAvailable,
         doctorCount: h.doctors.length,
@@ -179,7 +205,7 @@ export class HospitalService {
         ...d,
         photoUrl: sanitizeDoctorPhotoUrl(d.photoUrl),
       })),
-      facilities: JSON.parse(hospital.facilities || '[]'),
+      facilities: parseHospitalFacilities(hospital.facilities),
       doctorCount: hospital.doctors.length,
     };
   }
