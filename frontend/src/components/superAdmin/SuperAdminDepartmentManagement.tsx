@@ -32,15 +32,31 @@ import { useToast } from '../ui/Toast';
 
 // Clinical discipline icon map
 const deptIcons: Record<string, React.ReactNode> = {
-  cardiology: <HeartPulse className="w-5 h-5" />,
-  orthopedics: <Bone className="w-5 h-5" />,
-  neurology: <Brain className="w-5 h-5" />,
-  pediatrics: <Baby className="w-5 h-5" />,
-  'general-medicine': <Stethoscope className="w-5 h-5" />,
-  dermatology: <Sparkles className="w-5 h-5" />,
-  ent: <Activity className="w-5 h-5" />,
-  gynecology: <HeartPulse className="w-5 h-5" />,
-  oncology: <Activity className="w-5 h-5" />,
+  cardiology: <HeartPulse className="w-5 h-5 text-[#FF1D6B]" />,
+  orthopedics: <Bone className="w-5 h-5 text-[#FBA94C]" />,
+  neurology: <Brain className="w-5 h-5 text-royal-600" />,
+  pediatrics: <Baby className="w-5 h-5 text-cyan-500" />,
+  'general-medicine': <Stethoscope className="w-5 h-5 text-emerald-500" />,
+  'gemeral-medicine': <Stethoscope className="w-5 h-5 text-emerald-500" />,
+  dermatology: <Sparkles className="w-5 h-5 text-pink-500" />,
+  ent: <Activity className="w-5 h-5 text-orange-500" />,
+  gynecology: <HeartPulse className="w-5 h-5 text-purple-600" />,
+  oncology: <Activity className="w-5 h-5 text-indigo-500" />,
+};
+
+const friendlyDeptNames: Record<string, string> = {
+  'general-medicine': 'General Physician',
+  'gemeral-medicine': 'General Physician',
+  gynecology: "Women's Health",
+  dermatology: 'Skin Specialist',
+  pediatrics: 'Child Specialist',
+  ent: 'Ear, Nose & Throat',
+  cardiology: 'Heart Specialist',
+  orthopedics: 'Bone & Joint',
+  neurology: 'Brain & Spine',
+  oncology: 'Cancer Care',
+  dental: 'Dentist',
+  ophthalmology: 'Eye Specialist',
 };
 
 export const SuperAdminDepartmentManagement: React.FC = () => {
@@ -553,27 +569,22 @@ export const SuperAdminDepartmentManagement: React.FC = () => {
                   <span className="text-[11px] text-slate-400">Card appears like this to visitors</span>
                 </div>
 
-                <div className="max-w-xs mx-auto rounded-2xl overflow-hidden border border-slate-200 shadow-md relative aspect-[4/3] bg-slate-950">
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent pointer-events-none" />
-                  <div className="absolute top-2.5 right-2.5">
-                    <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                      Preview
-                    </span>
+                <div className="w-28 sm:w-32 mx-auto bg-white rounded-2xl border border-slate-200 shadow-md p-1.5 flex flex-col justify-between overflow-hidden text-center aspect-[3/4]">
+                  <div className="w-full flex-1 rounded-xl overflow-hidden relative bg-slate-50 flex items-center justify-center">
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
                   </div>
-                  <div className="absolute bottom-3 left-3 right-3 text-white pointer-events-none">
-                    <div className="font-extrabold text-base leading-snug drop-shadow-sm">
-                      {selectedDeptForUpload?.name ||
+                  <div className="w-full px-0.5 pt-1.5 pb-0.5 flex items-center justify-center min-h-[30px]">
+                    <span className="font-bold text-slate-800 text-[11px] leading-tight line-clamp-2">
+                      {friendlyDeptNames[selectedDeptForUpload?.slug || manualDeptSlug] ||
+                        selectedDeptForUpload?.name ||
                         departments.find((d) => d.slug === manualDeptSlug)?.name ||
                         'Department Name'}
-                    </div>
-                    <div className="text-[11px] text-slate-200 opacity-90 line-clamp-1">
-                      Specialized outpatient clinical care
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>

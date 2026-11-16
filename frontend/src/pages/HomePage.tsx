@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -36,16 +36,53 @@ import { RocketWheelLogo } from '../components/common/RocketWheelLogo';
 import { AdvertisementCarousel } from '../components/common/AdvertisementCarousel';
 
 const deptIcons: Record<string, React.ReactNode> = {
-  cardiology: <HeartPulse className="w-6 h-6 text-[#FF1D6B]" />,
-  orthopedics: <Bone className="w-6 h-6 text-[#FBA94C]" />,
-  neurology: <Brain className="w-6 h-6 text-royal-600" />,
-  dermatology: <Sparkles className="w-6 h-6 text-pink-500" />,
-  pediatrics: <Baby className="w-6 h-6 text-cyan-500" />,
-  ent: <Ear className="w-6 h-6 text-orange-500" />,
-  'general-medicine': <Stethoscope className="w-6 h-6 text-emerald-500" />,
-  gynecology: <Activity className="w-6 h-6 text-purple-600" />,
-  oncology: <Activity className="w-6 h-6 text-indigo-500" />,
+  cardiology: <HeartPulse className="w-5 h-5 text-[#FF1D6B]" />,
+  orthopedics: <Bone className="w-5 h-5 text-[#FBA94C]" />,
+  neurology: <Brain className="w-5 h-5 text-royal-600" />,
+  dermatology: <Sparkles className="w-5 h-5 text-pink-500" />,
+  pediatrics: <Baby className="w-5 h-5 text-cyan-500" />,
+  ent: <Ear className="w-5 h-5 text-orange-500" />,
+  'general-medicine': <Stethoscope className="w-5 h-5 text-emerald-500" />,
+  'gemeral-medicine': <Stethoscope className="w-5 h-5 text-emerald-500" />,
+  gynecology: <Activity className="w-5 h-5 text-purple-600" />,
+  oncology: <Activity className="w-5 h-5 text-indigo-500" />,
 };
+
+const friendlyDeptNames: Record<string, string> = {
+  'general-medicine': 'General Physician',
+  'gemeral-medicine': 'General Physician',
+  gynecology: "Women's Health",
+  dermatology: 'Skin Specialist',
+  pediatrics: 'Child Specialist',
+  ent: 'Ear, Nose & Throat',
+  cardiology: 'Heart Specialist',
+  orthopedics: 'Bone & Joint',
+  neurology: 'Brain & Spine',
+  oncology: 'Cancer Care',
+  dental: 'Dentist',
+  ophthalmology: 'Eye Specialist',
+};
+
+const generalCareSlugs = [
+  'general-medicine',
+  'gemeral-medicine',
+  'gynecology',
+  'dermatology',
+  'pediatrics',
+  'ent',
+  'dental',
+  'ophthalmology',
+];
+
+const advancedCareSlugs = [
+  'cardiology',
+  'orthopedics',
+  'neurology',
+  'oncology',
+  'urology',
+  'nephrology',
+  'pulmonology',
+];
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -65,6 +102,20 @@ export const HomePage: React.FC = () => {
     queryKey: ['departments', 'popular'],
     queryFn: () => hospitalsApi.getDepartments(),
   });
+
+  const [specialityCareCategory, setSpecialityCareCategory] = useState<'general' | 'advanced'>('general');
+
+  const displayedDepartments = useMemo(() => {
+    if (!departments || departments.length === 0) return [];
+    const filtered = departments.filter((dept) => {
+      const slug = (dept.slug || '').toLowerCase();
+      if (specialityCareCategory === 'general') {
+        return generalCareSlugs.includes(slug) || !advancedCareSlugs.includes(slug);
+      }
+      return advancedCareSlugs.includes(slug);
+    });
+    return filtered.length > 0 ? filtered : departments;
+  }, [departments, specialityCareCategory]);
 
   const { data: platformAds } = useQuery({
     queryKey: ['advertisements', 'platform'],
@@ -157,77 +208,87 @@ export const HomePage: React.FC = () => {
         </section>
       )}
 
-      {/* POPULAR CLINICAL DEPARTMENTS */}
+      {/* POPULAR CLINICAL DEPARTMENTS - COMPACT SPECIALITY TILES */}
       <section id="departments" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-          <div>
-            <div className="text-[#FF1D6B] font-bold text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5" /> Clinical Specialities
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Popular Departments
-            </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Select a clinical discipline to explore doctors across all partner hospitals
-            </p>
-          </div>
+        <div className="flex items-center justify-between mb-3.5">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Find doctors by speciality
+          </h2>
           <Link
             to="/hospitals"
-            className="text-sm font-bold text-royal-600 hover:text-royal-700 flex items-center gap-1"
+            className="text-xs sm:text-sm font-bold text-royal-600 hover:text-royal-700 flex items-center gap-1 shrink-0"
           >
-            All Specialities <ArrowRight className="w-4 h-4" />
+            Explore all <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {(departments || []).map((dept) => {
+        {/* Category Tabs: General Care | Advanced Care */}
+        <div className="inline-flex bg-slate-100/90 p-1 rounded-2xl mb-4 border border-slate-200/60 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setSpecialityCareCategory('general')}
+            className={`py-1.5 px-4 sm:px-5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              specialityCareCategory === 'general'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900 font-semibold'
+            }`}
+          >
+            General Care
+          </button>
+          <button
+            type="button"
+            onClick={() => setSpecialityCareCategory('advanced')}
+            className={`py-1.5 px-4 sm:px-5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+              specialityCareCategory === 'advanced'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900 font-semibold'
+            }`}
+          >
+            Advanced Care
+          </button>
+        </div>
+
+        {/* Small Blocks Grid (Matching Screenshot) */}
+        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3.5">
+          {displayedDepartments.map((dept) => {
             const hasCustomImage = Boolean(dept.imageUrl);
             const mediaUrl = hasCustomImage ? getMediaUrl(dept.imageUrl) : '';
+            const displayName = friendlyDeptNames[dept.slug] || dept.name;
 
             return (
               <Link
                 key={dept.id || dept.slug}
                 to={`/hospitals?department=${dept.slug}`}
-                className="min-w-[210px] sm:min-w-0 snap-start group relative rounded-2xl overflow-hidden border border-slate-200/90 hover:border-royal-500 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col aspect-[4/3] bg-slate-900 shrink-0 sm:shrink"
+                className="bg-white rounded-2xl border border-slate-150 hover:border-royal-400 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between p-1 sm:p-2 overflow-hidden group text-center aspect-[3/4] sm:aspect-auto sm:h-36"
               >
-                {/* Department Image or Clean Default Medical Placeholder */}
-                {hasCustomImage ? (
-                  <img
-                    src={mediaUrl}
-                    alt={dept.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-royal-950 via-royal-900 to-indigo-950 flex flex-col items-center justify-center p-5 text-center relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]" />
-                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform mb-2">
-                      {deptIcons[dept.slug] || <Activity className="w-7 h-7 text-royal-300" />}
+                {/* Top Image Container */}
+                <div className="w-full flex-1 rounded-xl overflow-hidden relative bg-slate-50 flex items-center justify-center">
+                  {hasCustomImage ? (
+                    <>
+                      <img
+                        src={mediaUrl}
+                        alt={displayName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-b from-royal-50/70 via-slate-50 to-white flex items-center justify-center">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white shadow-2xs border border-royal-100/70 flex items-center justify-center text-royal-600 group-hover:scale-110 transition-transform">
+                        {deptIcons[dept.slug] || <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-royal-600" />}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-royal-300/80 uppercase tracking-widest">
-                      Speciality Care
-                    </span>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Gradient Scrim Overlay for Perfect Text Contrast */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent pointer-events-none" />
-
-                {/* Overlaid Department Information */}
-                <div className="absolute bottom-0 inset-x-0 p-4 text-white flex flex-col justify-end pointer-events-none">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-extrabold text-white text-base sm:text-lg leading-tight drop-shadow-sm group-hover:text-royal-200 transition-colors">
-                      {dept.name}
-                    </h3>
-                    <div className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white/90 group-hover:bg-royal-500 group-hover:text-white transition-all shrink-0">
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-slate-200/90 line-clamp-1 mt-0.5 font-medium">
-                    {dept.description || 'Specialized outpatient clinical care'}
-                  </p>
+                {/* Bottom Title */}
+                <div className="w-full px-0.5 pt-1.5 pb-0.5 min-h-[30px] sm:min-h-[34px] flex items-center justify-center">
+                  <span className="font-bold text-slate-800 text-[10px] sm:text-xs leading-tight line-clamp-2 text-center group-hover:text-royal-600 transition-colors">
+                    {displayName}
+                  </span>
                 </div>
               </Link>
             );
