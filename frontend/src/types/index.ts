@@ -84,6 +84,23 @@ export interface Department {
   code?: string;
   description?: string;
   icon?: string;
+  imageUrl?: string | null;
+  hospitalId?: string;
+  hospital?: {
+    id: string;
+    name: string;
+    code: string;
+    city?: string;
+    status?: string;
+  };
+  _count?: {
+    doctors: number;
+    appointments: number;
+  };
+  hospitalCount?: number;
+  doctorCount?: number;
+  appointmentCount?: number;
+  departmentIds?: string[];
 }
 
 export interface Doctor {

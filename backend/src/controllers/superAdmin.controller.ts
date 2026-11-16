@@ -321,5 +321,68 @@ export class SuperAdminController {
       return errorResponse(res, error.message || 'Failed to generate Excel export', 500);
     }
   }
+
+  // -------------------------------------------------------------
+  // DEPARTMENT IMAGE MANAGEMENT
+  // -------------------------------------------------------------
+  static async getDepartments(req: Request, res: Response) {
+    try {
+      const { search, hospitalId, distinct } = req.query;
+      const departments = await SuperAdminService.getAllDepartments({
+        search: search as string,
+        hospitalId: hospitalId as string,
+        distinct: distinct === 'true' || distinct === '1',
+      });
+      return successResponse(res, departments, 'Departments retrieved successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to fetch departments', 500);
+    }
+  }
+
+  static async uploadDepartmentImage(req: Request, res: Response) {
+    try {
+      const { departmentId, slug, fileData, applyToAllMatching } = req.body;
+      const result = await SuperAdminService.uploadDepartmentImage({
+        departmentId,
+        slug,
+        fileData,
+        applyToAllMatching: applyToAllMatching !== false,
+        requestingUserId: req.user?.id,
+      });
+      return successResponse(res, result, 'Department image uploaded and saved successfully', 201);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to upload department image', error.statusCode || 500);
+    }
+  }
+
+  static async removeDepartmentImage(req: Request, res: Response) {
+    try {
+      const departmentId = req.params.id as string;
+      const { slug, applyToAllMatching } = req.body || {};
+      const result = await SuperAdminService.removeDepartmentImage({
+        departmentId,
+        slug,
+        applyToAllMatching: applyToAllMatching !== false,
+        requestingUserId: req.user?.id,
+      });
+      return successResponse(res, result, 'Department image removed successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to remove department image', error.statusCode || 500);
+    }
+  }
+
+  static async removeDepartmentImageBySlug(req: Request, res: Response) {
+    try {
+      const slug = req.params.slug as string;
+      const result = await SuperAdminService.removeDepartmentImage({
+        slug,
+        applyToAllMatching: true,
+        requestingUserId: req.user?.id,
+      });
+      return successResponse(res, result, `Image removed for all '${slug}' departments`);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to remove department image by slug', error.statusCode || 500);
+    }
+  }
 }
 

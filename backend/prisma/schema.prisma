@@ -125,6 +125,7 @@ model Department {
   code         String
   description  String?       
   icon         String?
+  imageUrl     String?
   doctors      Doctor[]
   appointments Appointment[]
   supportStaff SupportStaff[]

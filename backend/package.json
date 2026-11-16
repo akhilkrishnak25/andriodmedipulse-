@@ -12,7 +12,8 @@
     "prisma:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
     "test:registrations": "tsx src/tests/test_http_registrations.ts",
-    "health:db": "tsx src/tests/test_database_health.ts"
+    "health:db": "tsx src/tests/test_database_health.ts",
+    "test:departments": "tsx src/tests/test_department_images.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1158.0",

@@ -6,10 +6,12 @@ import prisma from '../config/prisma';
 import { successResponse, errorResponse } from '../utils/response';
 import { generateLabReportPdf } from '../utils/pdf';
 import { uploadToStorage, downloadFromStorage } from '../utils/storage';
+import { SuperAdminService } from '../services/superAdmin.service';
 
 const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
 const REPORTS_DIR = path.join(UPLOAD_ROOT, 'reports');
 const AVATARS_DIR = path.join(UPLOAD_ROOT, 'avatars');
+const DEPARTMENTS_DIR = path.join(UPLOAD_ROOT, 'departments');
 
 try {
   if (!fs.existsSync(REPORTS_DIR)) {
@@ -17,6 +19,9 @@ try {
   }
   if (!fs.existsSync(AVATARS_DIR)) {
     fs.mkdirSync(AVATARS_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(DEPARTMENTS_DIR)) {
+    fs.mkdirSync(DEPARTMENTS_DIR, { recursive: true });
   }
 } catch (e) {
   console.warn('Could not initialize uploads directories:', e);
@@ -454,6 +459,22 @@ export class UploadController {
     }
   }
 
+  static async uploadDepartmentImage(req: Request, res: Response) {
+    try {
+      const { departmentId, slug, fileData, applyToAllMatching } = req.body;
+      const result = await SuperAdminService.uploadDepartmentImage({
+        departmentId,
+        slug,
+        fileData,
+        applyToAllMatching: applyToAllMatching !== false,
+        requestingUserId: req.user?.id,
+      });
+      return successResponse(res, result, 'Department image uploaded successfully', 201);
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to upload department image', error.statusCode || 500);
+    }
+  }
+
   /**
    * Resilient upload serving middleware
    * 1. Checks local disk
@@ -504,7 +525,14 @@ export class UploadController {
             fs.writeFileSync(filePath, s3Buffer);
           } catch (e) {}
 
-          const mimeType = folder === 'reports' ? 'application/pdf' : 'image/jpeg';
+          let mimeType = 'image/jpeg';
+          if (folder === 'reports') {
+            mimeType = 'application/pdf';
+          } else if (filename.endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (filename.endsWith('.webp')) {
+            mimeType = 'image/webp';
+          }
           res.setHeader('Content-Type', mimeType);
           res.setHeader('Content-Length', s3Buffer.length);
           return res.send(s3Buffer);

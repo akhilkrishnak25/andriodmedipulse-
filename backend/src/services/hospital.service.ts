@@ -276,16 +276,47 @@ export class HospitalService {
   }
 
   static async getPopularDepartments() {
-    return prisma.department.findMany({
+    const departments = await prisma.department.findMany({
       distinct: ['slug'],
       select: {
         id: true,
         name: true,
         slug: true,
+        code: true,
         description: true,
         icon: true,
+        imageUrl: true,
       },
-      take: 8,
+      orderBy: {
+        slug: 'asc',
+      },
+      take: 16,
     });
+
+    // If any department record has an image in another hospital row with the same slug, use that imageUrl
+    const missingSlugs = departments.filter((d) => !d.imageUrl).map((d) => d.slug);
+    if (missingSlugs.length > 0) {
+      const recordsWithImages = await prisma.department.findMany({
+        where: {
+          slug: { in: missingSlugs },
+          imageUrl: { not: null },
+        },
+        select: {
+          slug: true,
+          imageUrl: true,
+        },
+      });
+      const imgMap = new Map<string, string>();
+      for (const rec of recordsWithImages) {
+        if (rec.imageUrl) imgMap.set(rec.slug, rec.imageUrl);
+      }
+      for (const dept of departments) {
+        if (!dept.imageUrl && imgMap.has(dept.slug)) {
+          dept.imageUrl = imgMap.get(dept.slug) || null;
+        }
+      }
+    }
+
+    return departments;
   }
 }

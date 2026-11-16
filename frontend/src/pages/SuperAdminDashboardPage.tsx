@@ -31,6 +31,7 @@ import {
   TrendingUp,
   Receipt,
   CalendarRange,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { superAdminApi } from '../api/superAdmin.api';
 import { Button } from '../components/ui/Button';
@@ -39,18 +40,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { SuperAdminAdvertisementManagement } from '../components/superAdmin/SuperAdminAdvertisementManagement';
+import { SuperAdminDepartmentManagement } from '../components/superAdmin/SuperAdminDepartmentManagement';
 import { saveOrOpenBlob } from '../utils/fileDownload';
 
 export const SuperAdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<'hospitals' | 'pending' | 'doctors' | 'appointments' | 'audit' | 'analytics' | 'labs' | 'platform-fee' | 'advertisements'>('hospitals');
+  const [activeTab, setActiveTab] = useState<'hospitals' | 'pending' | 'doctors' | 'appointments' | 'audit' | 'analytics' | 'labs' | 'platform-fee' | 'advertisements' | 'departments'>('hospitals');
 
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs', 'platform-fee', 'advertisements'].includes(hash)) {
+      if (['hospitals', 'pending', 'doctors', 'appointments', 'audit', 'analytics', 'labs', 'platform-fee', 'advertisements', 'departments'].includes(hash)) {
         setActiveTab(hash as any);
       }
     };
@@ -610,6 +612,24 @@ export const SuperAdminDashboardPage: React.FC = () => {
                 {pendingLabsCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('departments')}
+            className={`px-3.5 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'departments' ? 'bg-white text-royal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-royal-600" />
+            Departments & Images
+          </button>
+          <button
+            onClick={() => setActiveTab('advertisements')}
+            className={`px-3.5 py-2 rounded-lg transition-colors shrink-0 flex items-center gap-1.5 ${
+              activeTab === 'advertisements' ? 'bg-white text-royal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+            Platform Slides
           </button>
         </div>
       </div>
@@ -2286,6 +2306,11 @@ export const SuperAdminDashboardPage: React.FC = () => {
       {/* TAB 8: ADVERTISEMENT MANAGEMENT */}
       {activeTab === 'advertisements' && (
         <SuperAdminAdvertisementManagement />
+      )}
+
+      {/* TAB 9: DEPARTMENT & IMAGE MANAGEMENT */}
+      {activeTab === 'departments' && (
+        <SuperAdminDepartmentManagement />
       )}
 
       {/* EDIT PLATFORM FEE CONFIG MODAL */}

@@ -44,6 +44,7 @@ const deptIcons: Record<string, React.ReactNode> = {
   ent: <Ear className="w-6 h-6 text-orange-500" />,
   'general-medicine': <Stethoscope className="w-6 h-6 text-emerald-500" />,
   gynecology: <Activity className="w-6 h-6 text-purple-600" />,
+  oncology: <Activity className="w-6 h-6 text-indigo-500" />,
 };
 
 export const HomePage: React.FC = () => {
@@ -178,24 +179,59 @@ export const HomePage: React.FC = () => {
           </Link>
         </div>
 
-        <div className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory sm:grid sm:grid-cols-4 gap-3 sm:gap-4 pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {(departments || []).map((dept) => (
-            <Link
-              key={dept.id}
-              to={`/hospitals?department=${dept.slug}`}
-              className="min-w-[150px] sm:min-w-0 snap-start p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 hover:border-royal-500 hover:shadow-md transition-all group shrink-0 sm:shrink"
-            >
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-royal-50 transition-colors mb-2.5 sm:mb-3">
-                {deptIcons[dept.slug] || <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-royal-600" />}
-              </div>
-              <h3 className="font-bold text-slate-900 group-hover:text-royal-700 text-xs sm:text-base">
-                {dept.name}
-              </h3>
-              <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1 mt-0.5 sm:mt-1">
-                {dept.description || 'Specialized outpatient clinical care'}
-              </p>
-            </Link>
-          ))}
+        <div className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
+          {(departments || []).map((dept) => {
+            const hasCustomImage = Boolean(dept.imageUrl);
+            const mediaUrl = hasCustomImage ? getMediaUrl(dept.imageUrl) : '';
+
+            return (
+              <Link
+                key={dept.id || dept.slug}
+                to={`/hospitals?department=${dept.slug}`}
+                className="min-w-[210px] sm:min-w-0 snap-start group relative rounded-2xl overflow-hidden border border-slate-200/90 hover:border-royal-500 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col aspect-[4/3] bg-slate-900 shrink-0 sm:shrink"
+              >
+                {/* Department Image or Clean Default Medical Placeholder */}
+                {hasCustomImage ? (
+                  <img
+                    src={mediaUrl}
+                    alt={dept.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-royal-950 via-royal-900 to-indigo-950 flex flex-col items-center justify-center p-5 text-center relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:12px_12px]" />
+                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform mb-2">
+                      {deptIcons[dept.slug] || <Activity className="w-7 h-7 text-royal-300" />}
+                    </div>
+                    <span className="text-[10px] font-bold text-royal-300/80 uppercase tracking-widest">
+                      Speciality Care
+                    </span>
+                  </div>
+                )}
+
+                {/* Gradient Scrim Overlay for Perfect Text Contrast */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent pointer-events-none" />
+
+                {/* Overlaid Department Information */}
+                <div className="absolute bottom-0 inset-x-0 p-4 text-white flex flex-col justify-end pointer-events-none">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-extrabold text-white text-base sm:text-lg leading-tight drop-shadow-sm group-hover:text-royal-200 transition-colors">
+                      {dept.name}
+                    </h3>
+                    <div className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white/90 group-hover:bg-royal-500 group-hover:text-white transition-all shrink-0">
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-200/90 line-clamp-1 mt-0.5 font-medium">
+                    {dept.description || 'Specialized outpatient clinical care'}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

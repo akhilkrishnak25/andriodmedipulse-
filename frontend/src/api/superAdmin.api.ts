@@ -1,5 +1,6 @@
 import { api, getApiBaseUrl } from './client';
 import {
+  Department,
   HospitalPlatformFee,
   HospitalPlatformFeeConfigItem,
   PlatformFeeRevenueReport,
@@ -166,5 +167,29 @@ export const superAdminApi = {
       throw new Error(`Failed to export Platform Fee Excel report (${res.status})`);
     }
     return res.blob();
+  },
+
+  // Department Management & Images
+  getDepartments: (params?: { search?: string; hospitalId?: string; distinct?: boolean }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.hospitalId) query.append('hospitalId', params.hospitalId);
+    if (params?.distinct) query.append('distinct', 'true');
+    const qs = query.toString();
+    return api.get<Department[]>(`/super-admin/departments${qs ? `?${qs}` : ''}`);
+  },
+  uploadDepartmentImage: (data: { departmentId?: string; slug?: string; fileData: string; applyToAllMatching?: boolean }) =>
+    api.post<{ url: string; slug?: string; departmentId?: string; updatedCount: number }>(
+      '/super-admin/departments/upload-image',
+      data
+    ),
+  removeDepartmentImage: (departmentId?: string, slug?: string, applyToAllMatching = true) => {
+    if (slug && !departmentId) {
+      return api.delete<any>(`/super-admin/departments/slug/${slug}/image`);
+    }
+    return api.delete<any>(`/super-admin/departments/${departmentId}/image`, {
+      slug,
+      applyToAllMatching,
+    });
   },
 };

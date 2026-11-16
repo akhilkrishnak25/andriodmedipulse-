@@ -131,8 +131,11 @@ export const api = {
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
     }),
-  delete: <T>(endpoint: string) =>
-    apiClient<T>(endpoint, { method: 'DELETE' }),
+  delete: <T>(endpoint: string, body?: any) =>
+    apiClient<T>(endpoint, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
 };
 
 export const uploadApi = {

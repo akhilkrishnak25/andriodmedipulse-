@@ -17,4 +17,7 @@ router.post('/hospital-asset', authenticate, UploadController.uploadHospitalAsse
 // Doctor header & footer image branding uploads
 router.post('/doctor-asset', authenticate, UploadController.uploadDoctorAsset);
 
+// Department image uploads
+router.post('/department-image', authenticate, UploadController.uploadDepartmentImage);
+
 export default router;

@@ -45,4 +45,10 @@ router.patch('/platform-fees/hospitals/:hospitalId', SuperAdminController.update
 router.get('/platform-fees/reports', SuperAdminController.getPlatformFeeReports);
 router.get('/platform-fees/export/excel', SuperAdminController.exportPlatformFeeExcel);
 
+// Department Management & Image Oversight
+router.get('/departments', SuperAdminController.getDepartments);
+router.post('/departments/upload-image', SuperAdminController.uploadDepartmentImage);
+router.delete('/departments/:id/image', SuperAdminController.removeDepartmentImage);
+router.delete('/departments/slug/:slug/image', SuperAdminController.removeDepartmentImageBySlug);
+
 export default router;

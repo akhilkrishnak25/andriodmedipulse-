@@ -1,8 +1,22 @@
 import bcrypt from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import { Response } from 'express';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import prisma from '../config/prisma';
 import { AuditService } from '../utils/audit';
+import { uploadToStorage } from '../utils/storage';
+
+const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
+const DEPARTMENTS_DIR = path.join(UPLOAD_ROOT, 'departments');
+try {
+  if (!fs.existsSync(DEPARTMENTS_DIR)) {
+    fs.mkdirSync(DEPARTMENTS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not initialize departments uploads directory:', e);
+}
 
 export class SuperAdminService {
   static async getPlatformMetrics() {
@@ -948,6 +962,278 @@ export class SuperAdminService {
 
     await workbook.xlsx.write(res);
     res.end();
+  }
+
+  // -------------------------------------------------------------
+  // DEPARTMENT MANAGEMENT & IMAGE UPLOAD
+  // -------------------------------------------------------------
+  static async getAllDepartments(filters: { search?: string; hospitalId?: string; distinct?: boolean } = {}) {
+    const { search, hospitalId, distinct } = filters;
+
+    const where: any = {};
+    if (hospitalId) where.hospitalId = hospitalId;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { slug: { contains: search, mode: 'insensitive' } },
+        { hospital: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (distinct) {
+      // Group by clinical discipline (slug)
+      const allDepts = await prisma.department.findMany({
+        where,
+        include: {
+          hospital: {
+            select: { id: true, name: true, code: true, city: true, status: true },
+          },
+          _count: {
+            select: { doctors: true, appointments: true },
+          },
+        },
+        orderBy: [{ name: 'asc' }],
+      });
+
+      // Group records by slug
+      const groupedMap = new Map<string, any>();
+      for (const d of allDepts) {
+        if (!groupedMap.has(d.slug)) {
+          groupedMap.set(d.slug, {
+            id: d.id,
+            name: d.name,
+            slug: d.slug,
+            code: d.code,
+            description: d.description,
+            icon: d.icon,
+            imageUrl: d.imageUrl,
+            hospitalCount: 1,
+            doctorCount: d._count.doctors,
+            appointmentCount: d._count.appointments,
+            hospitals: [d.hospital],
+            departmentIds: [d.id],
+          });
+        } else {
+          const entry = groupedMap.get(d.slug);
+          if (!entry.imageUrl && d.imageUrl) {
+            entry.imageUrl = d.imageUrl;
+          }
+          entry.hospitalCount += 1;
+          entry.doctorCount += d._count.doctors;
+          entry.appointmentCount += d._count.appointments;
+          entry.hospitals.push(d.hospital);
+          entry.departmentIds.push(d.id);
+        }
+      }
+
+      return Array.from(groupedMap.values());
+    }
+
+    // Full list of individual hospital departments
+    return prisma.department.findMany({
+      where,
+      include: {
+        hospital: {
+          select: { id: true, name: true, code: true, city: true, status: true },
+        },
+        _count: {
+          select: { doctors: true, appointments: true },
+        },
+      },
+      orderBy: [{ hospital: { name: 'asc' } }, { name: 'asc' }],
+    });
+  }
+
+  static async uploadDepartmentImage(params: {
+    departmentId?: string;
+    slug?: string;
+    fileData: string;
+    applyToAllMatching?: boolean;
+    requestingUserId?: string;
+  }) {
+    const { departmentId, fileData, applyToAllMatching = true, requestingUserId } = params;
+
+    if (!fileData) {
+      const err: any = new Error('Image file data (base64) is required');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    let targetSlug = params.slug;
+    let targetDept = null;
+
+    if (departmentId) {
+      targetDept = await prisma.department.findUnique({
+        where: { id: departmentId },
+        include: { hospital: true },
+      });
+      if (!targetDept) {
+        const err: any = new Error(`Department with ID '${departmentId}' not found`);
+        err.statusCode = 404;
+        throw err;
+      }
+      if (!targetSlug) targetSlug = targetDept.slug;
+    }
+
+    if (!targetSlug && !departmentId) {
+      const err: any = new Error('Either departmentId or slug is required');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Validate format (JPG, JPEG, PNG, WEBP)
+    let base64Content = fileData;
+    let extension = '.jpg';
+    let mimeType = 'image/jpeg';
+
+    if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+      const matches = fileData.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        const err: any = new Error('Invalid image data format. Supported formats: JPG, JPEG, PNG, and WebP.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      let ext = matches[1].toLowerCase();
+      if (ext === 'jpeg') ext = 'jpg';
+      if (!['jpg', 'png', 'webp'].includes(ext)) {
+        const err: any = new Error('Unsupported image format. Allowed formats: JPG, JPEG, PNG, and WebP.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      extension = `.${ext}`;
+      mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      base64Content = matches[2];
+    }
+
+    const buffer = Buffer.from(base64Content, 'base64');
+    if (buffer.length > 8 * 1024 * 1024) {
+      const err: any = new Error('Department image file size exceeds maximum limit of 8MB');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const safeSlugName = (targetSlug || 'dept').replace(/[^a-z0-9_-]/gi, '-');
+    const randomName = `dept-${safeSlugName}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}${extension}`;
+    const filePath = path.join(DEPARTMENTS_DIR, randomName);
+
+    // 1. Write to local uploads/departments directory
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (writeErr) {
+      console.warn('Failed to write department image to disk:', writeErr);
+    }
+
+    const publicUrl = `/uploads/departments/${randomName}`;
+
+    // 2. Upload to Neon Object Storage (S3-compatible)
+    try {
+      await uploadToStorage(`departments/${randomName}`, buffer, mimeType);
+    } catch (s3Err) {
+      console.warn('Neon storage upload warning for department image:', s3Err);
+    }
+
+    // 3. Persist backup in StoredFile DB table
+    try {
+      await prisma.storedFile.upsert({
+        where: { path: publicUrl },
+        update: {
+          fileData: base64Content,
+          size: buffer.length,
+          mimeType,
+        },
+        create: {
+          path: publicUrl,
+          filename: randomName,
+          mimeType,
+          fileData: base64Content,
+          size: buffer.length,
+        },
+      });
+    } catch (dbErr) {
+      console.warn('Could not backup department image to StoredFile:', dbErr);
+    }
+
+    // 4. Update Department record(s) in database
+    let updatedCount = 0;
+    if (applyToAllMatching && targetSlug) {
+      const updateResult = await prisma.department.updateMany({
+        where: { slug: targetSlug },
+        data: { imageUrl: publicUrl },
+      });
+      updatedCount = updateResult.count;
+    } else if (departmentId) {
+      await prisma.department.update({
+        where: { id: departmentId },
+        data: { imageUrl: publicUrl },
+      });
+      updatedCount = 1;
+    }
+
+    if (requestingUserId) {
+      await AuditService.log({
+        userId: requestingUserId,
+        action: 'UPDATE_DEPARTMENT_IMAGE',
+        entity: 'Department',
+        entityId: targetSlug || departmentId || null,
+        details: `Updated department image for ${targetSlug || departmentId} (${updatedCount} records affected). URL: ${publicUrl}`,
+      });
+    }
+
+    return {
+      url: publicUrl,
+      slug: targetSlug,
+      departmentId,
+      updatedCount,
+      filename: randomName,
+    };
+  }
+
+  static async removeDepartmentImage(params: {
+    departmentId?: string;
+    slug?: string;
+    applyToAllMatching?: boolean;
+    requestingUserId?: string;
+  }) {
+    const { departmentId, applyToAllMatching = true, requestingUserId } = params;
+    let targetSlug = params.slug;
+
+    if (departmentId && !targetSlug) {
+      const d = await prisma.department.findUnique({
+        where: { id: departmentId },
+        select: { slug: true },
+      });
+      if (d) targetSlug = d.slug;
+    }
+
+    let removedCount = 0;
+    if (applyToAllMatching && targetSlug) {
+      const res = await prisma.department.updateMany({
+        where: { slug: targetSlug },
+        data: { imageUrl: null },
+      });
+      removedCount = res.count;
+    } else if (departmentId) {
+      await prisma.department.update({
+        where: { id: departmentId },
+        data: { imageUrl: null },
+      });
+      removedCount = 1;
+    }
+
+    if (requestingUserId) {
+      await AuditService.log({
+        userId: requestingUserId,
+        action: 'REMOVE_DEPARTMENT_IMAGE',
+        entity: 'Department',
+        entityId: targetSlug || departmentId || null,
+        details: `Removed department image for ${targetSlug || departmentId} (${removedCount} records affected).`,
+      });
+    }
+
+    return { success: true, removedCount, slug: targetSlug };
   }
 }
 
