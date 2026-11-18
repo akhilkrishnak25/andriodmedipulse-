@@ -11,6 +11,8 @@ router.use(authenticate, requireRole(['LAB_TECHNICIAN', 'HOSPITAL_ADMIN', 'SUPER
 router.get('/stats', LabController.getStats);
 router.get('/settings', LabController.getSettings);
 router.patch('/settings/price-visibility', LabController.updatePriceVisibility);
+router.post('/cover-image', LabController.uploadCoverImage);
+router.delete('/cover-image', LabController.removeCoverImage);
 
 // Requisitions & Reports
 router.get('/requests', LabController.getRequests);

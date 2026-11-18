@@ -122,6 +122,11 @@ export const HomePage: React.FC = () => {
     queryFn: () => advertisementApi.getPublicPlatformAds(),
   });
 
+  const { data: labAds } = useQuery({
+    queryKey: ['advertisements', 'labs'],
+    queryFn: () => advertisementApi.getPublicLabAds(),
+  });
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -443,14 +448,21 @@ export const HomePage: React.FC = () => {
           </Link>
         </div>
 
+        {/* LABORATORY ADVERTISEMENT BANNERS CAROUSEL */}
+        {labAds && labAds.length > 0 && (
+          <div className="rounded-3xl overflow-hidden shadow-sm border border-slate-200">
+            <AdvertisementCarousel advertisements={labAds} autoSlideInterval={5000} />
+          </div>
+        )}
+
         {labsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-56 bg-slate-100 animate-pulse rounded-2xl"></div>
+              <div key={n} className="h-64 bg-slate-100 animate-pulse rounded-3xl"></div>
             ))}
           </div>
         ) : (approvedLabs || []).length === 0 ? (
-          <div className="py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200 text-xs">
+          <div className="py-12 text-center text-slate-400 bg-white rounded-3xl border border-slate-200 text-xs">
             No diagnostic laboratories currently active.
           </div>
         ) : (
@@ -458,40 +470,62 @@ export const HomePage: React.FC = () => {
             {(approvedLabs || []).slice(0, 6).map((lab: any) => (
               <Card
                 key={lab.id}
-                className="rounded-2xl border-slate-200 hover:shadow-md hover:border-purple-300 transition-all flex flex-col justify-between p-6 bg-white space-y-4"
+                className="overflow-hidden rounded-3xl border-slate-200 hover:shadow-lg hover:border-purple-300 transition-all flex flex-col justify-between bg-white group"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="p-3 bg-purple-50 rounded-xl text-purple-600 shrink-0">
-                      <FlaskConical className="w-6 h-6" />
+                <div>
+                  {/* RESPONSIVE LAB COVER IMAGE / CLEAN DEFAULT PLACEHOLDER */}
+                  <div className="relative aspect-[16/9] w-full bg-slate-100 overflow-hidden border-b border-slate-100">
+                    {lab.imageUrl ? (
+                      <img
+                        src={getMediaUrl(lab.imageUrl)}
+                        alt={lab.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-purple-800 via-indigo-900 to-slate-900 flex flex-col items-center justify-center p-4 text-center text-white relative">
+                        <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-purple-200 mb-1.5 shadow-inner">
+                          <FlaskConical className="w-6 h-6" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-purple-200/90">
+                          Accredited Diagnostic Facility
+                        </span>
+                      </div>
+                    )}
+
+                    {/* OVERLAY BADGES */}
+                    <div className="absolute top-3 left-3">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md bg-purple-950/80 text-white border border-white/20">
+                        {lab.type === 'HOSPITAL_LAB' ? 'In-Hospital Lab' : 'Independent Lab'}
+                      </span>
                     </div>
-                    <Badge variant="purple" className="text-[10px]">
-                      {lab.type === 'HOSPITAL_LAB' ? 'In-Hospital Lab' : 'Independent Lab'}
-                    </Badge>
                   </div>
 
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">{lab.name}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {lab.hospital ? `${lab.hospital.name} • ${lab.hospital.city}` : 'Accredited Independent Pathology Center'}
-                    </p>
-                  </div>
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base group-hover:text-purple-700 transition-colors line-clamp-1">
+                        {lab.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                        {lab.hospital ? `${lab.hospital.name} • ${lab.hospital.city || ''}` : 'Accredited Independent Pathology Center'}
+                      </p>
+                    </div>
 
-                  <div className="flex items-center gap-3 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                    <span className="flex items-center gap-1 font-semibold text-purple-700">
-                      <Activity className="w-3.5 h-3.5 text-purple-500" />
-                      {lab.testsCount || 0} Tests in Catalog
-                    </span>
-                    <span>•</span>
-                    <span className="text-slate-400 font-mono text-[11px]">
-                      License: {lab.licenseNumber || 'ACCREDITED'}
-                    </span>
+                    <div className="flex items-center gap-3 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                      <span className="flex items-center gap-1 font-semibold text-purple-700">
+                        <Activity className="w-3.5 h-3.5 text-purple-500" />
+                        {lab.testsCount || 0} Tests in Catalog
+                      </span>
+                      <span>•</span>
+                      <span className="text-slate-400 font-mono text-[11px]">
+                        License: {lab.licenseNumber || 'ACCREDITED'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100">
+                <div className="p-5 pt-0">
                   <Link to={`/lab-tests?labId=${lab.id}`} className="block">
-                    <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs">
+                    <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm">
                       Book Diagnostic Test <ArrowRight className="w-3.5 h-3.5 ml-1" />
                     </Button>
                   </Link>

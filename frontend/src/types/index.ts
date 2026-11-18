@@ -320,7 +320,7 @@ export interface Lab {
   name: string;
   type: 'HOSPITAL' | 'INDEPENDENT';
   hospitalId?: string;
-  hospital?: { name: string; code: string };
+  hospital?: { id?: string; name: string; code?: string; city?: string };
   email: string;
   phone: string;
   address?: string;
@@ -329,6 +329,9 @@ export interface Lab {
   status: 'PENDING' | 'APPROVED' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
   showPrices?: boolean;
   visibility?: 'PUBLIC' | 'PRIVATE';
+  imageUrl?: string | null;
+  testsCount?: number;
+  requestsCount?: number;
   _count?: { testRequests?: number };
 }
 
@@ -612,8 +615,9 @@ export interface Advertisement {
   description?: string | null;
   imageUrl: string;
   redirectUrl?: string | null;
-  ownerType: 'SUPER_ADMIN' | 'HOSPITAL_ADMIN';
+  ownerType: 'SUPER_ADMIN' | 'HOSPITAL_ADMIN' | 'LAB_ADMIN';
   hospitalId?: string | null;
+  labId?: string | null;
   displayOrder: number;
   isActive: boolean;
   createdById?: string | null;
@@ -627,6 +631,12 @@ export interface Advertisement {
     name: string;
     code: string;
     logoUrl?: string | null;
+  } | null;
+  lab?: {
+    id: string;
+    name: string;
+    imageUrl?: string | null;
+    hospital?: { id?: string; name: string; city?: string } | null;
   } | null;
   createdAt: string;
   updatedAt: string;

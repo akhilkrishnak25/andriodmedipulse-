@@ -10,6 +10,12 @@ export const labApi = {
   updatePriceVisibility: (showPrices: boolean) =>
     api.patch<any>('/lab/settings/price-visibility', { showPrices }),
 
+  uploadCoverImage: (fileData: string) =>
+    api.post<{ imageUrl: string; labId: string; name: string }>('/lab/cover-image', { fileData }),
+
+  removeCoverImage: () =>
+    api.delete<{ success: boolean; message: string; labId: string }>('/lab/cover-image'),
+
   // Technician / Lab Admin Requisitions & Reports
   getRequests: (
     params?:

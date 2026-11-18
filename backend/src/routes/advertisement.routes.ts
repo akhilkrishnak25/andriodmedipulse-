@@ -9,6 +9,8 @@ const router = Router();
 // ==========================================
 router.get('/platform', AdvertisementController.getPublicPlatformAds);
 router.get('/hospital/:hospitalId', AdvertisementController.getPublicHospitalAds);
+router.get('/labs', AdvertisementController.getPublicLabAds);
+router.get('/lab/:labId', AdvertisementController.getPublicLabAdsByLabId);
 
 // ==========================================
 // SHARED ASSET UPLOAD
@@ -16,7 +18,7 @@ router.get('/hospital/:hospitalId', AdvertisementController.getPublicHospitalAds
 router.post(
   '/upload',
   authenticate,
-  requireRole(['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'HOSPITAL_SUB_ADMIN']),
+  requireRole(['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'HOSPITAL_SUB_ADMIN', 'LAB_TECHNICIAN']),
   AdvertisementController.uploadAdvertisementImage
 );
 
@@ -28,6 +30,13 @@ router.get(
   authenticate,
   requireRole(['SUPER_ADMIN']),
   AdvertisementController.getAdminPlatformAds
+);
+
+router.get(
+  '/super-admin/labs',
+  authenticate,
+  requireRole(['SUPER_ADMIN']),
+  AdvertisementController.getSuperAdminLabAds
 );
 
 router.post(
@@ -108,6 +117,51 @@ router.post(
   authenticate,
   requireRole(['HOSPITAL_ADMIN', 'HOSPITAL_SUB_ADMIN']),
   AdvertisementController.reorderAdminHospitalAds
+);
+
+// ==========================================
+// LAB ADMIN MANAGEMENT ROUTES
+// ==========================================
+router.get(
+  '/admin/lab',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.getAdminLabAds
+);
+
+router.post(
+  '/admin/lab',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.createAdminLabAd
+);
+
+router.put(
+  '/admin/lab/:id',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.updateAdminLabAd
+);
+
+router.patch(
+  '/admin/lab/:id/status',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.toggleAdminLabAdStatus
+);
+
+router.delete(
+  '/admin/lab/:id',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.deleteAdminLabAd
+);
+
+router.post(
+  '/admin/lab/reorder',
+  authenticate,
+  requireRole(['LAB_TECHNICIAN', 'SUPER_ADMIN']),
+  AdvertisementController.reorderAdminLabAds
 );
 
 export default router;

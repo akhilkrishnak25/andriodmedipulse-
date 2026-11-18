@@ -58,6 +58,39 @@ export class LabController {
     }
   }
 
+  static async uploadCoverImage(req: Request, res: Response) {
+    try {
+      const labId = await LabService.resolveLabForUser(req.user);
+      if (!labId) {
+        return errorResponse(res, 'Laboratory affiliation missing from session', 400);
+      }
+
+      const { fileData } = req.body;
+      if (!fileData) {
+        return errorResponse(res, 'Image file data is required', 400);
+      }
+
+      const result = await LabService.uploadLabCoverImage(labId, fileData, req.user?.id);
+      return successResponse(res, result, 'Laboratory cover image updated successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to upload cover image', error.statusCode || 500);
+    }
+  }
+
+  static async removeCoverImage(req: Request, res: Response) {
+    try {
+      const labId = await LabService.resolveLabForUser(req.user);
+      if (!labId) {
+        return errorResponse(res, 'Laboratory affiliation missing from session', 400);
+      }
+
+      const result = await LabService.removeLabCoverImage(labId, req.user?.id);
+      return successResponse(res, result, 'Laboratory cover image removed successfully');
+    } catch (error: any) {
+      return errorResponse(res, error.message || 'Failed to remove cover image', error.statusCode || 500);
+    }
+  }
+
   static async getRequests(req: Request, res: Response) {
     try {
       const labId = await LabService.resolveLabForUser(req.user);

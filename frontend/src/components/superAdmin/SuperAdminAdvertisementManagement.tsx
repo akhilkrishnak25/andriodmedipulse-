@@ -17,6 +17,9 @@ import {
   Upload,
   CheckCircle2,
   Layers,
+  FlaskConical,
+  Building2,
+  Search,
 } from 'lucide-react';
 import { advertisementApi } from '../../api/advertisement.api';
 import { getMediaUrl } from '../../api/client';
@@ -37,6 +40,10 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
   const [replacingAd, setReplacingAd] = useState<Advertisement | null>(null);
   const [deletingAd, setDeletingAd] = useState<Advertisement | null>(null);
   const [showLivePreview, setShowLivePreview] = useState(true);
+
+  // Tab switch between Platform Advertisements and Laboratory Advertisements
+  const [activeSubTab, setActiveSubTab] = useState<'platform' | 'labs'>('platform');
+  const [labSearchFilter, setLabSearchFilter] = useState('');
 
   // Form State for Create / Edit
   const [title, setTitle] = useState('');
@@ -64,6 +71,24 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
 
   const isLimitReached = stats.totalSlides >= 8;
 
+  // Query Laboratory Advertisements Network for Super Admin Oversight
+  const {
+    data: labAdsData,
+    isLoading: isLabAdsLoading,
+    refetch: refetchLabAds,
+    isFetching: isFetchingLabAds,
+  } = useQuery({
+    queryKey: ['super-admin-lab-advertisements'],
+    queryFn: () => advertisementApi.getSuperAdminLabAds(),
+  });
+
+  const labAdvertisements = labAdsData?.advertisements || [];
+  const labStats = labAdsData?.stats || {
+    totalSlides: labAdvertisements.length,
+    activeSlides: labAdvertisements.filter((a) => a.isActive).length,
+    inactiveSlides: labAdvertisements.filter((a) => !a.isActive).length,
+  };
+
   // Create Mutation
   const createMutation = useMutation({
     mutationFn: (newAd: Partial<Advertisement>) =>
@@ -86,6 +111,8 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-platform-advertisements'] });
       queryClient.invalidateQueries({ queryKey: ['advertisements', 'platform'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin-lab-advertisements'] });
+      queryClient.invalidateQueries({ queryKey: ['advertisements', 'labs'] });
       toast.success('Advertisement slide updated successfully!');
       setEditingAd(null);
     },
@@ -100,6 +127,8 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['admin-platform-advertisements'] });
       queryClient.invalidateQueries({ queryKey: ['advertisements', 'platform'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin-lab-advertisements'] });
+      queryClient.invalidateQueries({ queryKey: ['advertisements', 'labs'] });
       toast.success(`Advertisement marked as ${updated.isActive ? 'active' : 'inactive'}`);
     },
     onError: (err: any) => {
@@ -113,7 +142,9 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-platform-advertisements'] });
       queryClient.invalidateQueries({ queryKey: ['advertisements', 'platform'] });
-      toast.success('Advertisement deleted. Slot is now free for new uploads.');
+      queryClient.invalidateQueries({ queryKey: ['super-admin-lab-advertisements'] });
+      queryClient.invalidateQueries({ queryKey: ['advertisements', 'labs'] });
+      toast.success('Advertisement deleted successfully.');
       setDeletingAd(null);
     },
     onError: (err: any) => {
@@ -280,8 +311,37 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-16">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      {/* SUB-TABS: PLATFORM VS LABORATORY ADVERTISEMENTS */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          onClick={() => setActiveSubTab('platform')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'platform'
+              ? 'bg-royal-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          Platform Banners (8 Slots)
+        </button>
+        <button
+          onClick={() => setActiveSubTab('labs')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'labs'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <FlaskConical className="w-4 h-4" />
+          Laboratory Advertisements Network ({labAdvertisements.length})
+        </button>
+      </div>
+
+      {/* VIEW 1: PLATFORM ADVERTISEMENTS */}
+      {activeSubTab === 'platform' && (
+        <div className="space-y-8">
+          {/* HEADER SECTION */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-royal-50 text-royal-600">
@@ -679,6 +739,223 @@ export const SuperAdminAdvertisementManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+    </div>
+  )}
+
+  {/* VIEW 2: LABORATORY ADVERTISEMENTS OVERSIGHT */}
+  {activeSubTab === 'labs' && (
+    <div className="space-y-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-purple-50 text-purple-700">
+              <FlaskConical className="w-6 h-6" />
+            </span>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Laboratory Advertisements Network Oversight
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+            Super Admin oversight across all accredited diagnostic laboratory slides. Each lab is allocated 3 slots. Changes reflect in real time on the MedPulse homepage.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchLabAds()}
+            disabled={isFetchingLabAds}
+            className="flex items-center gap-1.5 text-xs rounded-xl"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetchingLabAds ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI METRIC CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="border-slate-200 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Total Lab Slides
+              </p>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+                {labStats.totalSlides}
+              </div>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+              <Image className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Active & Live on Home Page
+              </p>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">
+                {labStats.activeSlides}
+              </div>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Eye className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Disabled / Inactive Slides
+              </p>
+              <div className="text-2xl sm:text-3xl font-black text-slate-600 mt-1">
+                {labStats.inactiveSlides}
+              </div>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+              <EyeOff className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* SEARCH FILTER */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 transform -translate-y-1/2" />
+          <input
+            type="text"
+            value={labSearchFilter}
+            onChange={(e) => setLabSearchFilter(e.target.value)}
+            placeholder="Search by laboratory name or slide title..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+          />
+        </div>
+      </div>
+
+      {/* LAB ADVERTISEMENTS LIST */}
+      {isLabAdsLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-64 bg-slate-100 animate-pulse rounded-2xl" />
+          ))}
+        </div>
+      ) : labAdvertisements.length === 0 ? (
+        <div className="p-12 text-center text-slate-400 bg-white rounded-3xl border border-slate-200 text-xs">
+          No laboratory advertisement slides uploaded yet. Lab admins can manage up to 3 slides from their dashboard.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {labAdvertisements
+            .filter((ad) => {
+              if (!labSearchFilter.trim()) return true;
+              const q = labSearchFilter.toLowerCase();
+              return (
+                ad.title.toLowerCase().includes(q) ||
+                (ad.lab?.name || '').toLowerCase().includes(q) ||
+                (ad.description || '').toLowerCase().includes(q)
+              );
+            })
+            .map((ad) => (
+              <Card
+                key={ad.id}
+                className="overflow-hidden border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between bg-white rounded-2xl"
+              >
+                <div>
+                  <div className="relative aspect-[16/9] w-full bg-slate-100 overflow-hidden border-b border-slate-100">
+                    <img
+                      src={getMediaUrl(ad.imageUrl)}
+                      alt={ad.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900/80 text-white backdrop-blur-sm">
+                        Slot {ad.displayOrder + 1}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-sm ${
+                          ad.isActive
+                            ? 'bg-emerald-500/90 text-white shadow-sm'
+                            : 'bg-slate-700/80 text-slate-200'
+                        }`}
+                      >
+                        {ad.isActive ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
+                      <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{ad.lab?.name || 'Diagnostic Laboratory'}</span>
+                    </div>
+
+                    <h3 className="font-bold text-slate-900 text-sm line-clamp-1">{ad.title}</h3>
+
+                    {ad.description && (
+                      <p className="text-xs text-slate-500 line-clamp-2">{ad.description}</p>
+                    )}
+
+                    {ad.redirectUrl && (
+                      <div className="text-[11px] text-purple-600 font-mono truncate">
+                        Link: {ad.redirectUrl}
+                      </div>
+                    )}
+
+                    <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-100">
+                      Uploaded by: {ad.createdBy?.name || ad.createdBy?.email || 'Lab Admin'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 pt-0 border-t border-slate-100 flex items-center justify-between gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleMutation.mutate(ad.id)}
+                    disabled={toggleMutation.isPending}
+                    className={`text-xs rounded-xl h-8 ${
+                      ad.isActive
+                        ? 'text-amber-700 hover:bg-amber-50 border-amber-200'
+                        : 'text-emerald-700 hover:bg-emerald-50 border-emerald-200'
+                    }`}
+                  >
+                    {ad.isActive ? (
+                      <>
+                        <EyeOff className="w-3.5 h-3.5 mr-1" />
+                        Disable
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5 mr-1" />
+                        Enable
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeletingAd(ad)}
+                    className="text-xs rounded-xl h-8 text-rose-600 hover:bg-rose-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </Card>
+            ))}
+        </div>
+      )}
+    </div>
+  )}
 
       {/* HIDDEN FILE INPUT FOR IMAGE REPLACEMENT */}
       <input

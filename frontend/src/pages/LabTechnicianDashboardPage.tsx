@@ -34,6 +34,9 @@ import {
   RotateCcw,
   ShieldCheck,
   CreditCard,
+  Megaphone,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { labApi } from '../api/lab.api';
 import { uploadApi, getMediaUrl } from '../api/client';
@@ -43,6 +46,7 @@ import { Badge } from '../components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { LabAdvertisementManagement } from '../components/lab/LabAdvertisementManagement';
 import { InlineSpinner } from '../components/ui/Loading';
 import { LabTestRequest } from '../types';
 import { RocketWheelLogo } from '../components/common/RocketWheelLogo';
@@ -52,8 +56,8 @@ export const LabTechnicianDashboardPage: React.FC = () => {
   const toast = useToast();
   const { user, logout } = useAuth();
 
-  // Primary Tab: 'hospital' | 'direct' | 'all' | 'tests' | 'settings'
-  const [activeMainTab, setActiveMainTab] = useState<'hospital' | 'direct' | 'all' | 'tests' | 'settings'>('hospital');
+  // Primary Tab: 'hospital' | 'direct' | 'all' | 'tests' | 'settings' | 'advertisements'
+  const [activeMainTab, setActiveMainTab] = useState<'hospital' | 'direct' | 'all' | 'tests' | 'settings' | 'advertisements'>('hospital');
 
   // Unified Requisitions & Booking Filters
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'HOSPITAL' | 'DIRECT_PATIENT'>('HOSPITAL');
@@ -284,6 +288,65 @@ export const LabTechnicianDashboardPage: React.FC = () => {
       toast.error('Failed to update price visibility', err.message);
     },
   });
+
+  // Laboratory Cover Image State & Mutations
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [coverImageBase64, setCoverImageBase64] = useState<string | null>(null);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadCoverMutation = useMutation({
+    mutationFn: (base64Data: string) => labApi.uploadCoverImage(base64Data),
+    onSuccess: () => {
+      toast.success('Cover Image Saved', 'Laboratory cover image has been updated successfully.');
+      queryClient.invalidateQueries({ queryKey: ['lab-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['approved-labs-homepage'] });
+      queryClient.invalidateQueries({ queryKey: ['public-active-labs'] });
+      setCoverImagePreview(null);
+      setCoverImageBase64(null);
+    },
+    onError: (err: any) => {
+      toast.error('Failed to save cover image', err.message);
+    },
+  });
+
+  const removeCoverMutation = useMutation({
+    mutationFn: () => labApi.removeCoverImage(),
+    onSuccess: () => {
+      toast.success('Cover Image Removed', 'Laboratory cover image removed. Default placeholder will now be displayed.');
+      queryClient.invalidateQueries({ queryKey: ['lab-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['approved-labs-homepage'] });
+      queryClient.invalidateQueries({ queryKey: ['public-active-labs'] });
+      setCoverImagePreview(null);
+      setCoverImageBase64(null);
+    },
+    onError: (err: any) => {
+      toast.error('Failed to remove cover image', err.message);
+    },
+  });
+
+  const handleCoverImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Invalid Format', 'Please upload a JPG, JPEG, PNG, or WebP image.');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('File Too Large', 'Cover image size must not exceed 8MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setCoverImagePreview(result);
+      setCoverImageBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Fetch lab requests with unified server-side filters
   const { data: requests = [], isLoading: isRequestsLoading, refetch: refetchRequests } = useQuery({
@@ -565,6 +628,19 @@ export const LabTechnicianDashboardPage: React.FC = () => {
             >
               <Settings className="w-4 h-4" />
               Settings & Price Visibility
+            </button>
+
+            {/* Tab 6: Advertisement Slides (3 Slots) */}
+            <button
+              onClick={() => setActiveMainTab('advertisements')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeMainTab === 'advertisements'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              Advertisement Slides (3 Slots)
             </button>
           </div>
         </div>
@@ -1460,6 +1536,180 @@ export const LabTechnicianDashboardPage: React.FC = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Laboratory Cover Image Card */}
+            <Card className="rounded-3xl border-slate-200 shadow-sm p-6 sm:p-8 bg-white space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-3 bg-purple-50 text-purple-700 rounded-2xl shrink-0">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">Laboratory Cover Image</h2>
+                    <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                      Upload or change the official laboratory cover banner. This image is prominently displayed in the MedPulse home page laboratory directory and on the direct diagnostic booking portal.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    ref={coverImageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleCoverImageFileSelect}
+                  />
+
+                  {coverImagePreview ? (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={uploadCoverMutation.isPending}
+                        onClick={() => {
+                          if (coverImageBase64) {
+                            uploadCoverMutation.mutate(coverImageBase64);
+                          }
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        {uploadCoverMutation.isPending ? 'Saving...' : 'Save Cover Image'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCoverImagePreview(null);
+                          setCoverImageBase64(null);
+                          if (coverImageInputRef.current) coverImageInputRef.current.value = '';
+                        }}
+                        className="text-xs rounded-xl text-slate-600 border-slate-200"
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" />
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => coverImageInputRef.current?.click()}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm"
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1" />
+                        {settings?.imageUrl ? 'Change Cover Image' : 'Upload Cover Image'}
+                      </Button>
+                      {settings?.imageUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={removeCoverMutation.isPending}
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to remove the laboratory cover image? A default placeholder will be displayed instead.')) {
+                              removeCoverMutation.mutate();
+                            }
+                          }}
+                          className="text-xs rounded-xl text-rose-600 hover:bg-rose-50 border-rose-200"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Remove
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* COVER IMAGE CONTAINER / LIVE PREVIEW */}
+              {coverImagePreview ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-2 font-medium">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <strong>Previewing Selected Image:</strong> Review the image below before saving to verify framing across devices. Click "Save Cover Image" above to publish.
+                    </span>
+                  </div>
+                  <div className="relative w-full aspect-[21/9] sm:aspect-[24/9] rounded-2xl overflow-hidden border-2 border-emerald-500/50 shadow-md bg-slate-900">
+                    <img
+                      src={coverImagePreview}
+                      alt="Cover Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-full shadow-sm">
+                      Unsaved Preview
+                    </div>
+                  </div>
+                </div>
+              ) : settings?.imageUrl ? (
+                <div className="relative w-full aspect-[21/9] sm:aspect-[24/9] rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-900 group">
+                  <img
+                    src={getMediaUrl(settings.imageUrl)}
+                    alt={settings.name || 'Laboratory Cover'}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-4 sm:p-6">
+                    <div className="text-white">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/80 uppercase tracking-wider backdrop-blur-sm">
+                        Active Published Cover
+                      </span>
+                      <h3 className="font-black text-lg sm:text-xl mt-1 drop-shadow-sm">
+                        {settings.name || 'Laboratory Facility'}
+                      </h3>
+                      <p className="text-xs text-slate-200 mt-0.5">
+                        {settings.address ? `${settings.address}, ${settings.city || ''}` : settings.city || 'Certified Diagnostic Facility'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => coverImageInputRef.current?.click()}
+                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-800 text-xs font-bold shadow-md backdrop-blur-sm flex items-center gap-1.5 transition-all"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-purple-600" />
+                    Change Image
+                  </button>
+                </div>
+              ) : (
+                /* DEFAULT PLACEHOLDER (No random photo) */
+                <div className="relative w-full aspect-[21/9] sm:aspect-[24/9] rounded-2xl overflow-hidden border border-purple-200/60 bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-950 p-6 flex flex-col justify-between text-white shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-purple-200 border border-white/10">
+                      Default Medical Theme Placeholder
+                    </span>
+                    <button
+                      onClick={() => coverImageInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-xl bg-white text-purple-900 text-xs font-bold shadow-md flex items-center gap-1.5 hover:bg-purple-50 transition-colors"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-purple-700" />
+                      Upload Official Banner
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-purple-300">
+                      <FlaskConical className="w-5 h-5 text-purple-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-purple-300">
+                        Accredited Pathology & Diagnostic Center
+                      </span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-white">
+                      {settings?.name || user?.name || 'Laboratory Diagnostic Facility'}
+                    </h3>
+                    <p className="text-xs text-purple-200/80 max-w-lg">
+                      No custom laboratory cover image uploaded yet. A clean placeholder is currently shown to visitors on the MedPulse homepage.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 6: LABORATORY ADVERTISEMENT SLIDES MANAGEMENT */}
+        {/* ======================================================== */}
+        {activeMainTab === 'advertisements' && (
+          <div className="max-w-6xl mx-auto">
+            <LabAdvertisementManagement />
           </div>
         )}
       </main>

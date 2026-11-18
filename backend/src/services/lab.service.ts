@@ -1,8 +1,22 @@
+import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
 import ExcelJS from 'exceljs';
 import prisma from '../config/prisma';
 import { AuditService } from '../utils/audit';
 import { NotificationService } from './notification.service';
+import { uploadToStorage } from '../utils/storage';
+
+const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
+const LABS_DIR = path.join(UPLOAD_ROOT, 'labs');
+
+try {
+  if (!fs.existsSync(LABS_DIR)) {
+    fs.mkdirSync(LABS_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not initialize labs directory:', e);
+}
 
 export class LabService {
   /**
@@ -228,6 +242,7 @@ export class LabService {
       licenseNumber: lab.licenseNumber,
       visibility: lab.visibility,
       showPrices: lab.showPrices ?? true,
+      imageUrl: lab.imageUrl,
       hospital: lab.hospital,
     };
   }
@@ -257,6 +272,171 @@ export class LabService {
       id: updated.id,
       name: updated.name,
       showPrices: updated.showPrices,
+    };
+  }
+
+  /**
+   * Upload / Replace Laboratory Cover Image
+   * Supports: JPG, JPEG, PNG, WebP (<= 8MB)
+   * Saves to local disk, Neon S3, and StoredFile table for resilience
+   */
+  static async uploadLabCoverImage(labId: string, fileData: string, userId?: string) {
+    if (!labId) {
+      const error: any = new Error('Laboratory ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const lab = await prisma.lab.findUnique({ where: { id: labId } });
+    if (!lab) {
+      const error: any = new Error('Laboratory not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (!fileData) {
+      const error: any = new Error('Image data (base64) is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let base64Content = fileData;
+    let extension = '.jpg';
+    let mimeType = 'image/jpeg';
+
+    if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+      const matches = fileData.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        const error: any = new Error('Invalid image format. Supported formats: JPG, JPEG, PNG, and WebP.');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      let ext = matches[1].toLowerCase();
+      if (ext === 'jpeg') ext = 'jpg';
+      if (!['jpg', 'png', 'webp'].includes(ext)) {
+        const error: any = new Error('Unsupported image format. Allowed formats: JPG, JPEG, PNG, and WebP.');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      extension = `.${ext}`;
+      mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      base64Content = matches[2];
+    }
+
+    const buffer = Buffer.from(base64Content, 'base64');
+    if (buffer.length > 8 * 1024 * 1024) {
+      const error: any = new Error('Image size exceeds maximum limit of 8MB');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const randomName = `lab-${labId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
+    const filePath = path.join(LABS_DIR, randomName);
+
+    // 1. Write to local uploads/labs directory
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (writeErr) {
+      console.warn('Failed to write lab cover image to disk:', writeErr);
+    }
+
+    let publicUrl = `/uploads/labs/${randomName}`;
+
+    // 2. Upload to Neon Object Storage if configured
+    try {
+      const s3Url = await uploadToStorage(`labs/${randomName}`, buffer, mimeType);
+      if (s3Url) {
+        publicUrl = s3Url;
+      }
+    } catch (s3Err) {
+      console.warn('Neon storage upload warning for lab cover image:', s3Err);
+    }
+
+    // 3. Resilient backup in StoredFile DB table
+    try {
+      await prisma.storedFile.upsert({
+        where: { path: `labs/${randomName}` },
+        update: {
+          fileData: base64Content,
+          size: buffer.length,
+          mimeType,
+        },
+        create: {
+          path: `labs/${randomName}`,
+          filename: randomName,
+          mimeType,
+          fileData: base64Content,
+          size: buffer.length,
+        },
+      });
+    } catch (dbErr) {
+      console.warn('Could not backup lab cover image to StoredFile:', dbErr);
+    }
+
+    // 4. Update Lab in database
+    const updatedLab = await prisma.lab.update({
+      where: { id: labId },
+      data: { imageUrl: publicUrl },
+    });
+
+    try {
+      await AuditService.log({
+        userId,
+        action: 'UPDATE_LAB_COVER_IMAGE',
+        entity: 'Lab',
+        entityId: labId,
+        details: { imageUrl: publicUrl },
+      });
+    } catch (err) {
+      console.warn('AuditLog creation skipped in uploadLabCoverImage:', err);
+    }
+
+    return {
+      imageUrl: updatedLab.imageUrl,
+      labId: updatedLab.id,
+      name: updatedLab.name,
+    };
+  }
+
+  /**
+   * Remove Laboratory Cover Image
+   */
+  static async removeLabCoverImage(labId: string, userId?: string) {
+    if (!labId) {
+      const error: any = new Error('Laboratory ID is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const lab = await prisma.lab.findUnique({ where: { id: labId } });
+    if (!lab) {
+      const error: any = new Error('Laboratory not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const updatedLab = await prisma.lab.update({
+      where: { id: labId },
+      data: { imageUrl: null },
+    });
+
+    try {
+      await AuditService.log({
+        userId,
+        action: 'REMOVE_LAB_COVER_IMAGE',
+        entity: 'Lab',
+        entityId: labId,
+      });
+    } catch (err) {
+      console.warn('AuditLog creation skipped in removeLabCoverImage:', err);
+    }
+
+    return {
+      success: true,
+      message: 'Laboratory cover image removed successfully',
+      labId: updatedLab.id,
     };
   }
 
@@ -1238,6 +1418,7 @@ export class LabService {
       status: l.status,
       visibility: l.visibility,
       showPrices: l.showPrices ?? true,
+      imageUrl: l.imageUrl,
       hospital: l.hospital,
       testsCount: l._count.tests,
       requestsCount: l._count.testRequests,

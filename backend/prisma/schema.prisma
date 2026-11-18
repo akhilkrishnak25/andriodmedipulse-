@@ -492,12 +492,14 @@ model Lab {
   address       String?         
   city          String?
   licenseNumber String?
+  imageUrl      String?          // Laboratory Cover Image
   status        String           @default("PENDING") // PENDING, APPROVED, ACTIVE, REJECTED, SUSPENDED
   visibility    String           @default("PUBLIC") // PUBLIC or PRIVATE (Hospital Admin controllable)
   showPrices    Boolean          @default(true) // Configurable by Lab Admin: Show Prices / Hide Prices to direct patients
   technicians   LabTechnician[]
   testRequests  LabTestRequest[]
   tests         LabTest[]
+  advertisements Advertisement[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 }
@@ -758,9 +760,11 @@ model Advertisement {
   description String?
   imageUrl    String
   redirectUrl String?
-  ownerType   String    @default("SUPER_ADMIN") // SUPER_ADMIN or HOSPITAL_ADMIN
+  ownerType   String    @default("SUPER_ADMIN") // SUPER_ADMIN, HOSPITAL_ADMIN, or LAB_ADMIN
   hospitalId  String?
   hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  labId       String?
+  lab         Lab?      @relation(fields: [labId], references: [id], onDelete: Cascade)
   displayOrder Int      @default(0)
   isActive    Boolean   @default(true)
   createdById String?
@@ -770,4 +774,5 @@ model Advertisement {
 
   @@index([ownerType, isActive, displayOrder])
   @@index([hospitalId, isActive, displayOrder])
+  @@index([labId, isActive, displayOrder])
 }
